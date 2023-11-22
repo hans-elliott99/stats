@@ -1,0 +1,288 @@
+---
+title: "Linear Regression"
+author: "Hans Elliott"
+format: html
+---
+
+```{r}
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(plotly)
+  library(data.table)
+})
+
+set.seed(1614)
+```
+
+# Least Squares
+
+```{r}
+n <- 50
+d <- data.frame(x = rnorm(n))
+d$y <- d$x * 2 + rnorm(n)
+
+mod <- lm(y ~ x, data = d)
+d$fitted <- mod$fitted.values
+
+ggplot(d, aes(x = x, y = y)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_segment(aes(xend = x, yend = fitted),
+               color = "red") +
+  labs(title = "Least Squares",
+       subtitle = "Minimizing the sum of squared errors") +
+  theme(
+    plot.subtitle = element_text(colour = "red")
+  )
+
+
+```
+
+## From Scratch - Simple Regression
+
+$Y = a + b X + \varepsilon$
+```{r}
+# acquire data
+Y <- as.matrix(iris[, "Petal.Length"])# col matrix
+X <- as.matrix(iris[, c("Sepal.Length")]) # col matrix
+
+# this is the correct answer, as computed by R
+(m0 <- lm(Y ~ X))
+
+
+# let's estimate b (the slope) and a (the intercept) by hand
+## one way to think of this -  b = cov(X, Y) / var(X)
+## and then - a = E[Y] - b E[X]
+## but we have to use sample estimates, so replace expectations with averages
+(b_hat <- cov(X, Y) / var(X))
+## or, do it by hand
+(b_hat <- (mean(X * Y) - mean(X)*mean(Y)) /
+          (mean(X^2) - mean(X)^2) )
+## leaving
+(a_hat <- mean(Y) - b_hat * mean(X))
+
+
+data.frame(x = X, y = Y, yhat = a_hat + b_hat * X) |>
+  ggplot() +
+  geom_point(aes(x = x, y = y)) +
+  geom_line(aes(x = x, y = yhat), color = "blue") +
+  theme_minimal() +
+  labs(title = "Simple Linear Regression")
+
+
+```
+Let's try multiple regression.  
+Matrix form:    
+$Y = X \beta + \varepsilon$  
+
+$\hat{\beta} = (X^\top X)^{-1}X^\top Y$ (if $X^\top X$ is invertible)
+
+```{r}
+# let's switch to multiple regression, and use matrix notation for convenience
+Y <- as.matrix(iris[, "Petal.Length"])# col matrix
+X <- as.matrix(iris[, c("Petal.Width", "Sepal.Length")])
+
+# this is the right answer, from R
+(m0 <- lm(Y ~ X))
+
+# now, by hand
+## add constant vector to create the model/design matrix
+##> model.matrix(~ X), or do it by hand
+Xm <- cbind(1, X)
+head(Xm)
+
+## calculate beta vector - note, solve(A) computes the inverse of A
+(betas_hat <- solve(t(Xm) %*% Xm) %*% t(Xm) %*% Y)
+
+## now we can predict Y
+Y_hat <- Xm %*% betas_hat
+all.equal(c(Y_hat), m0$fitted.values, check.attributes = FALSE)
+
+## by the way, we can calculate the projection matrix which projects Y onto the
+## column span of X - another way to produce our estimate, \hat{Y}
+P <- Xm %*% solve(t(Xm) %*% Xm) %*% t(Xm)
+dim(P) #n x n
+Y_hat2 <- P %*% Y
+head(data.frame(lm = m0$fitted.values,
+                Xb = Y_hat,
+                Py = Y_hat2))
+
+
+# with two explanatory variables, we are finding the 'plane of best fit'
+
+x1 <- seq(min(X[, 1]), max(X[, 1]), length = 300)
+x2 <- seq(min(X[, 2]), max(X[, 2]), length = length(x1))
+ymat <- c(cbind(1, x1, x2) %*% betas_hat) * # y_hat
+        matrix(1, nrow = length(x1), ncol = length(x1))
+
+d <- data.frame(x = X[, 1], y = X[, 2], z = Y)
+
+plot_ly(d, x = ~x, y = ~y, z = ~z) |>
+  add_markers() |>
+  add_surface(x = ~x1, y = ~x2, z = ~ymat)
+  
+```
+
+# Regression with Inference
+
+Model: $Y_i = X_i^\top \beta + \varepsilon_i$  
+Stacked into matrix form: $Y = X \beta + \varepsilon$  
+
+Let's assume $X$ is deterministic.  
+We'll make our Gauss-Markov assumptions:  
+- $rank(X) = p$  
+- homoskedastic noise term - so the variance of $\varepsilon$ is the same for all $i$  
+- $\varepsilon_i \sim N(0, \sigma^2)$, for some unkown variance (noise is Gaussian with mean 0)  
+
+Which allows us to perform some statistical inference and extend the least squares algorithm.  
+
+We say $Y \sim N_n(X \beta, \sigma^2 I_n)$ (if $X$ was random, we would write $Y|X$).  
+
+
+
+```{r}
+set.seed(1614)
+# sim some data
+n <- 10000
+# design matrix
+# - we treat as deterministic, but first have to "observe" some data
+X <- cbind(1, rnorm(n))
+# outcome Y
+beta <- c(0, 5)
+s2 <- 4 # sigma^2, variance, common to all individuals i
+Y <- rnorm(n,
+           mean = X %*% beta,
+           sd = sqrt(s2))
+
+# now we observe X and Y, but do not know beta or sigma^2
+ggplot() +
+  geom_point(aes(x = X[, 2], y = Y), alpha = 0.10)
+
+# beta - right answer, courtesy of R
+(m0 <- lm(Y ~ X[,2]))
+
+# by hand:
+(beta_hat <- solve(t(X) %*% X) %*% t(X) %*% Y)
+Y_hat <- X %*% beta_hat
+
+# by the way, we can compute an unbiased estimator of sigma^2 (which is == 4)
+# as prediction-error / (n - p)
+# where prediction-error is the sum of squared residuals, n is sample size, p is
+# the dimension of the parameter vector.
+p <- ncol(X)
+(s2_hat <- sum((Y - Y_hat)^2) / (n - p))
+
+# and yes, this is equal to the empirical variance of the residuals
+var(Y - Y_hat)
+
+# we can also check the following relationship:
+# E[ ||Y - X * beta ||^2 ] = sigma^2 * (n - p)
+# prediction-error = variance * (n - p) in expectation
+# (which is why the variance estimator is prediction-error/(n - p))
+(sum((Y - Y_hat)^2))
+(s2 * (n - p))
+
+simY <- function(n) {
+  r <- replicate(1000,
+                 rnorm(n, mean = X %*% beta_hat, sd = sqrt(s2_hat)))
+  return(rowMeans(r))
+}
+
+ggplot() +
+  geom_density(aes(x = simY(50)), color = "grey") +
+  geom_density(aes(x = simY(100)), color = "lightblue") +
+  geom_density(aes(x = simY(1000)), color = "cyan") +
+  geom_density(aes(x = Y)) +
+  labs(x="Y", title="Simulations of Y using estimated parameters")
+
+
+```
+More importantly we can do inference on the parameters of the model.
+
+We can use a t-test to test if a given $\beta_j$ is significantly different from 0:  
+```{r}
+# R's summary runs some tests which we can compare our manual work to
+summary(m0)
+
+#H0: beta_j = 0
+#H1: beta_j != 0
+
+j <- 2 # test the second coordinate of beta, not the intercept
+
+# test stat
+## empirical covariance matrix of beta
+(gamma <- s2_hat * solve(t(X) %*% X))
+
+## this is the standard error of beta_j
+## it is the sqrt of the jth diagonal (variance) of the covariance matrix
+(se <- sqrt(gamma[j,j]))
+
+## the test stat follows Student's T distribution with n-p d.o.f.
+(T_n <- (beta_hat[j] - 0) / se)
+
+## test at the 5% level
+(q_alpha <- qt(1 - 0.05/2, df = n - p))
+(reject_null <- T_n > q_alpha)
+
+## calculate p-value
+## (less than .Machine$double.eps, prob. of more extreme T_n is very low)
+(pval <- 2 * (1 - pt(abs(T_n), df = n - p)))
+```
+
+In the lecture we learned that Student's T test for regression can be expressed as a specific case of a more general testing paradigm, where one tests the null $G \hat{\beta} = \lambda$ vs. $G \hat{\beta} \ne \lambda$, for some matrix $G$ and some vector $\lambda$.  
+A popular regression test is the "regression F test", which is meant to test jointly whether any of the $\beta_j$ are significant from 0. This can be computed using the above framework if we let $G = I_p$ (identity), where $p$ is the number of parameters we are testing, and $\lambda = \vec{0}$.
+
+
+```{r}
+# General F test for linear regression
+# (of form, G %*% beta = lambda, see end of regression notes):
+#
+
+# sim some new data
+set.seed(1614)
+n <- 10000
+## design matrix
+X <- cbind(1, rnorm(n), rnorm(n))
+p <- ncol(X)
+## outcome Y
+beta <- c(0, 5, 10)
+s2 <- 4 # sigma^2, variance, common to all individuals i
+Y <- rnorm(n,
+           mean = X %*% beta,
+           sd = sqrt(s2))
+## estimation
+(beta_hat <- solve(t(X) %*% X) %*% t(X) %*% Y)
+Y_hat <- X %*% beta_hat
+(s2_hat <- sum((Y - Y_hat)^2) / (n - p))
+
+summary(lm(Y ~ X[, 2:p]))
+
+# H0: beta_2 = beta_3 = 0
+# H1: at least one beta_j != 0
+
+
+## identity matrix to index each beta_j (dim k x p)
+k <- p
+G <- diag(1, k, p)
+lambda <- 0
+
+# Compute test statistic
+# which follows the F distribution with k (number of parameters being tested)
+# and (n-p) d.o.f.
+T_n <- (1 / s2_hat) *
+       t(G %*% beta_hat - lambda) %*%
+       solve(G %*% solve(t(X) %*% X %*% t(G))) %*%
+       (G %*% beta_hat - lambda)
+# note, R uses k-1 as the F-dist's 1st d.o.f., whereas notes say it is k
+(T_n <- T_n / (k - 1))
+
+# test at 5% level
+(q_alpha <- qf(1 - 0.05/2, df1 = k - 1, df2 = n - p)) #not n-pp
+(reject_null <- T_n > q_alpha)
+
+# p-value
+(pval <- 2 * (1 - pf(T_n, df1 = k - 1, df2 = n - p)))
+
+```
+
+

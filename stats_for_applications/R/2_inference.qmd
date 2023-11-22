@@ -1,0 +1,18 @@
+---
+title: "Statistical Inference Introduction"
+author: "Hans Elliott"
+format: html
+---
+
+Example:  
+
+We observe inter-arrival times at a bus stop.  
+We can model them with an exponential distribution.  
+Say $X \sim Exp(\lambda)$, so our model for $X$ is $([0, \infty])$
+
+```{r}
+
+
+
+```
+
