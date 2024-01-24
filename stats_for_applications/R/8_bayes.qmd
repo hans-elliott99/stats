@@ -40,68 +40,71 @@ n <- 100
 ptrue <- 0.55 # true parameter p
 X <- rbinom(n, size = 1, p = ptrue)
 # Use a Beta(a, b) prior, which has mean 0.5 if a=b (since E[X] = a / (a + b))
-a <- sample.int(100, 1)
+a <- 10
 b <- a
+p <- ppoints(1000)
 
 # Bayes estimation of posterior distribution
 
 # prior dist of p proportional to:
-prior_beta <- \(p) p^(a - 1) * (1-p)^(b - 1)
-plot(ppoints(100), prior_beta(ppoints(100)))
+prior_beta <- p^(a - 1) * (1-p)^(b - 1)
+plot(p, prior_beta, type = "l")
 
 # Likelihood of p, given the model of X as Bernoulli r.v. (i.e., joint PMF)
-lik_bernoulli <- \(p) p^sum(X) * (1 - p)^(n - sum(X))
-plot(ppoints(100), lik_bernoulli(ppoints(100)))
+lik_bernoulli <- p^sum(X) * (1 - p)^(n - sum(X))
+plot(p, lik_bernoulli, type = "l")
 
 # posterior dist of p
 # - has distribution Beta(a + sum(X), b + n - sum(X))
-.post_beta <- \(p) dbeta(p, a + sum(X), b + n - sum(X))
-plot(ppoints(100), .post_beta(ppoints(100)))
+.post_beta <- dbeta(p, a + sum(X), b + n - sum(X))
+plot(p, .post_beta, type = "l")
 # which is prop to:
-post_beta <- \(p) p^(a - 1 + sum(X)) * (1 - p)^(a - 1 + n - sum(X))
+post_beta <- p^(a - 1 + sum(X)) * (1 - p)^(a - 1 + n - sum(X))
 # (for consistency, using hand-computed equation instead of dbeta)
 
 
 # use these functions to draw prior, likelihood, and posterior density curves
-d <- data.frame(p = ppoints(1000))
-d$prior <- prior_beta(d$p)
-d$lik   <- lik_bernoulli(d$p)
-d$post  <- post_beta(d$p)
-
-rescale <- init_rescaler(d$prior)
+d <- data.frame(p = p,
+                prior = prior_beta / sum(prior_beta),
+                lik = lik_bernoulli / sum(lik_bernoulli),
+                post = post_beta / sum(post_beta))
 
 ggplot(d, aes(x = p)) +
-  geom_line(aes(y = (prior), color = "prior"), alpha = 0.35) +
-  geom_line(aes(y = rescale(lik), color = "likelihood"), alpha = 0.35) +
-  geom_line(aes(y = rescale(post), color = "posterior"), alpha = 1) +
+  geom_line(aes(y = prior, color = "prior"), alpha = 0.35) +
+  geom_line(aes(y = lik, color = "likelihood"), alpha = 0.35) +
+  geom_line(aes(y = post, color = "posterior"), alpha = 1) +
+  # point ests
   geom_vline(xintercept = mean(X), linetype = 3, alpha = 0.5) +
   geom_text(aes(x = mean(X), y = 0), label = "bar(X)", parse = TRUE) +
   geom_vline(xintercept = ptrue, linetype = 3, alpha = 0.5) +
+  # aesthetic
   geom_text(aes(x = ptrue, y = 0), label = "p^`*`", parse = TRUE) +
   scale_color_manual(values = c(prior = "blue",
                                 likelihood = "red",
-                                posterior = "orange")) +
-  labs(y = "(rescaled distribution)",
+                                posterior = "green")) +
+  labs(y = "Density",
        caption = "We have a prior of 0.5,\nthe data suggests the true value is lower (as seen by the likelihood/MLE),\nso the posterior falls in between.",
        color = "") +
   theme_minimal() +
-  theme(axis.text.y = element_blank())
+  theme(axis.text.y = element_blank(),
+        legend.position = "top",
+        legend.direction = "horizontal")
 ```
 
 ```{r}
-# what if we used a uniform prior?
+# what if we used a uniform prior? (Beta(1,1))
 d$prior_unif <- rep_len(1, nrow(d))
-# posterior distribution is prop to likelihood
-post_beta2 <- \(p) p^sum(X) * (1-p)^(n - sum(X))
-d$post2 <- post_beta2(d$p)
+# posterior distribution is prop to the likelihood
+d$post_unif <- p^sum(X) * (1-p)^(n - sum(X))
+# rescale
+d$post_unif <- d$post_unif / sum(d$post_unif)
+d$prior_unif <- d$prior_unif * max(d$post_unif) ## scale down for plotting
 
-rescale <- init_rescaler(d$post2)
 
 ggplot(d, aes(x = p)) +
-  geom_line(aes(y = rescale(prior_unif, minx = 0), color = "prior"),
-            alpha = 0.25) +
-  geom_line(aes(y = (lik), color = "likelihood"), alpha = 0.35) +
-  geom_line(aes(y = (post2), color = "posterior"),
+  geom_line(aes(y = prior_unif, color = "prior"), alpha = 0.25) +
+  geom_line(aes(y = lik, color = "likelihood"), alpha = 0.35) +
+  geom_line(aes(y = post_unif, color = "posterior"),
             alpha = 1, linetype = 2) +
   geom_vline(xintercept = mean(X), linetype = 3, alpha = 0.5) +
   geom_text(aes(x = mean(X), y = 0), label = "bar(X)", parse = TRUE) +
@@ -109,12 +112,14 @@ ggplot(d, aes(x = p)) +
   geom_text(aes(x = ptrue, y = 0), label = "p^`*`", parse = TRUE) +
   scale_color_manual(values = c(prior = "blue",
                                 likelihood = "red",
-                                posterior = "orange")) +
-  labs(y = "(rescaled distribution)",
+                                posterior = "green")) +
+  labs(y = "Density",
        caption = "We have a uniform prior,\nthe data suggests the true value is the mean of the X's (as seen by the likelihood),\nso the posterior becomes the likelihood.",
        color = "") +
   theme_minimal() +
-  theme(axis.text.y = element_blank())
+  theme(axis.text.y = element_blank(),
+        legend.position = "top",
+        legend.direction = "horizontal")
 
 ```
 
@@ -123,30 +128,34 @@ For the Bernoulli case, Jeffreys prior $\pi_J \propto \sqrt{\det I(\theta)} \pro
 (consider that $p(1-p)$ is the variance of a Bernoulli random variable).  
 
 ```{r}
-d$prior_jeff <- 1 / sqrt(d$p * (1 - d$p))
-
-rescale <- init_rescaler(d$lik)
-
+d$prior_jeff <- 1 / sqrt(p * (1 - p))
 # posterior distribution is prop to likelihood * prior
-post_beta3 <- \(p) (p^sum(X) * (1-p)^(n - sum(X))) / sqrt(p * (1-p))
-d$post3 <- post_beta3(d$p)
+d$post_jeff <- (p^sum(X) * (1-p)^(n - sum(X))) / sqrt(p * (1-p))
+
+# rescale
+d$post_jeff <- d$post_jeff / sum(d$post_jeff)
+d$prior_jeff <- d$prior_jeff * mean(d$post_jeff)
+
 
 ggplot(d, aes(x = p)) +
-  geom_line(aes(y = rescale(prior_jeff), color = "prior"), alpha = 0.25) +
-  geom_line(aes(y = (lik), color = "likelihood"), alpha = 0.35) +
-  geom_line(aes(y = (post3), color = "posterior"), alpha = 1) +
+  geom_line(aes(y = prior_jeff, color = "prior"), alpha = 0.25) +
+  geom_line(aes(y = lik, color = "likelihood"), alpha = 0.35) +
+  geom_line(aes(y = post_jeff, color = "posterior"),
+            alpha = 1, linetype = 3) +
   geom_vline(xintercept = mean(X), linetype = 3, alpha = 0.5) +
   geom_text(aes(x = mean(X), y = 0), label = "bar(X)", parse = TRUE) +
   geom_vline(xintercept = ptrue, linetype = 3, alpha = 0.5) +
   geom_text(aes(x = ptrue, y = 0), label = "p^`*`", parse = TRUE) +
   scale_color_manual(values = c(prior = "blue",
                                 likelihood = "red",
-                                posterior = "orange")) +
-  labs(y = "(rescaled distribution)",
+                                posterior = "green")) +
+  labs(y = "Density",
        caption = "Jeffreys prior emphasizes the tails,\nthe data suggests the true value is the mean of the X's (as seen by the likelihood),\nso the posterior resembles the likelihood.",
        color = "") +
   theme_minimal() +
-  theme(axis.text.y = element_blank())
+  theme(axis.text.y = element_blank(),
+        legend.position = "top",
+        legend.direction = "horizontal")
 
 ```
 

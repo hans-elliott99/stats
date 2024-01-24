@@ -180,7 +180,7 @@ The following proportions are equivalent:
 3. $E[e^{ixT_n}] \xrightarrow[n \to \infty]{} E[e^{ixT}]$, for all $x \in \R$
     - this expectation is known as *the characteristic function*, and it essentially tells us - rather than looking at all continuous bounded functions, we can look at one specific family of complex functions (the family that maps $T$ to $e^{ixT}, \forall x \in \R$) - a much smaller family - and this is sufficient.
 
-### Important Properties
+### Important Properties of Convergence
 - If $(T_n)_{n \ge 1}$ converges a.s., then it also converges in probability, and the two limits (of the r.v.'s $T_n$ and $T$) are equal a.s. (hence, a.s. convergence is stronger than convergence in probability)
 - If $(T_n)_{n \ge 1}$ converges in $L^p$, then it also converges in $L^q$ for all $q \le p$ *and* in probability, and the limits (of $T_n$ and $T$) are equal a.s.
 - If $(T_n)_{n \ge 1}$ converges in probability, then it also converges in distribution

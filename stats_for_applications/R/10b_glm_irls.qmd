@@ -1,0 +1,570 @@
+---
+title: "Generalised Linear Models"
+author: Hans Elliott
+format: html
+---
+
+In the previous GLM examples we derived log-likelihood functions in terms of $\beta$ for the desired exponential family distributions, and then manually optimized the log-likelihood using R's `stats::optim` function.  
+`optim` uses several possible general-purpose optimization methods to optimize an input function. While this works, it's not how GLMs are typically fit.
+
+In practice GLMs are fit using Iteratively Re-Weighted Least Squares, which is a convenient way to perform Netwon-Raphson or Fisher-scoring updating by reformulating the update procedure as a weighted least squares problem (see lecture notes 10b). 
+
+
+## Newton-Raphson / Fisher-Scoring Optimization Method
+
+
+
+The Newton-Raphson optimization method updates the parameter estimate iteratively, maximizing the log likelihood by performing a modified gradient ascent. At each iteration $k$ we compute $\beta^{(k + 1)} = \beta^{(k)} + [-H_{l_n}(\beta^{(k)})]^{-1}  \nabla_{l_n}(\beta^{(k)})$
+
+$l_n$ is the log-likelihood as a function of $\beta$, $\nabla$ is the gradient of the log-likelihood, and $H$ is the Hessian.  
+
+The Fisher-scoring method replaces the $-H_{l_n}(\beta^{(k)})^{-1}$ term with the (inverse of the) Fisher information matrix, $I(\beta^{(k)})^{-1}$, since it can sometimes be more convenient to compute.  
+At each iteration $k$ we compute $\beta^{(k + 1)} = \beta^{(k)} + I(\beta^{(k)})^{-1}  \nabla_{l_n}(\beta^{(k)})$
+
+
+
+### Example: Bernoulli
+
+For the Bernoulli family, we can derive (see lecture notes):  
+
+- $\nabla(\beta) = X^\top (\frac{e^{X \beta}}{1 + e^{X \beta}} - Y)$  
+
+- $-H(\beta) = I(\beta) = - X^\top diag(\frac{e^{X \beta}}{(1 + e^{X \beta})^2}) X$
+  - (the Hessian and Fisher-information matrix are essentially equivalent)
+
+
+
+
+```{r}
+###
+### newton-raphson / fisher-scoring
+###
+# sim data
+sigmoid <- \(x) (1 / (1 + exp(-x)))
+xraw <- cbind(rnorm(100), rnorm(100))
+p_true <- sigmoid(1 + xraw[,1] + xraw[,2])
+yraw <- rbinom(100, size = 1, prob = p_true)
+# yraw <- p_true ## test to verify coefs all = 1
+
+### prep inputs
+x <- cbind(1, as.matrix(xraw))
+y <- as.matrix(as.numeric(yraw), ncol = 1)
+
+# init beta
+# beta <- wls(fam$link(y), x)
+beta <- rep(0, ncol(x))
+
+maxit <- 10
+for (it in 1:maxit) {
+  ###
+  ### newton-raphson (equivalent to fisher-scoring)
+  ###
+  xb <- x %*% beta
+  grad <- t(x) %*% (exp(xb) / (1 + exp(xb)) - y)
+  hess <- - t(x) %*% (diag(as.numeric(exp(xb) / (1 + exp(xb))^2)))  %*% x
+
+  betaold <- beta
+  beta <- betaold + solve(hess) %*% grad
+  # stop?
+  diff <- sqrt(sum((beta - betaold)^2)) # l2 norm, ie norm(x, type = "2")
+  cat(paste0("[",it,"/",maxit,"]: l2 norm = ", diff, "\n"))
+}
+
+
+cat("Our Newton-Raphson coefficients:\n", beta, "\n")
+
+fitglm <- glm(y ~ xraw, family = binomial(link = "logit"))
+cat("stats::glm coefficients:\n", coef(fitglm), "\n")
+
+```
+
+## Iteratively Reweighted Least Squares
+
+Using the particular functional form of distributions in the exponential family, we are able to rewrite the Fisher-scoring method as a weighted least squares problem (derivation in notes).  
+
+The IRLS update procedure used to obtain the $k + 1$-th iteration's coefficient can be written as:  
+
+$$\beta^{(k + 1)} = ({X}^\top {W} {X})^{-1} {X}^\top {W}(\tilde{{Y}} - \tilde{\mu} + X\beta^{(k)})$$
+where:  
+
+- $W = diag(\frac{h'(X_i^\top \beta)}{g'(\mu_i)\phi})$
+- $\tilde{Y}_i = Y_i ~ g'(\mu_i)$ and $\tilde{\mu}_i = \mu_i ~ g'(\mu_i)$
+- $g$ is the link function, such that $\mu_i = g^{-1}(X^\top \beta)$
+- $h = (b')^{-1} \circ g^{-1}$, given the cumulant generating function $b$ ($h$ is identity under the canonical link).
+
+
+A **Weighed Least Squares** problem is concerned with deriving the maximum likelihood estimator by solving: $\min_\beta (Y - {X}\beta)^\top {W} (Y - {X}\beta)$, which has a closed-form solution:
+$$
+\hat{\beta} = ({X}^\top {W} {X})^{-1} {X}^\top {W} Y
+$$
+
+
+This matches the update procedure formula above when:  
+
+1. $W = W(\beta^{(k)})$ is the weight matrix
+2. $Y = \tilde{{Y}} - \tilde{\mu} + {X}\beta^{(k)}$ is the response (below called $Z$)
+
+
+We can also reformulate the working weight matrix and working response vector to utilize more common functions (see notes for math).  
+
+$${W}^{(k)}= diag \frac{\mu'(X\beta)^2}{Var(\mu) \phi}$$
+$$Z_i^{(k)} = X\beta + \frac{(Y_i - \mu_i^{(k)})}{\mu'(X\beta)}$$
+
+**Algorithm**:  
+Given a $\beta^{(k)}$ at step $k$, we can obtain $\beta^{(k+1)}$ by the following:  
+1. Fix $\beta^{(k)}$ and set:
+$$\mu_i^{(k)} = g^{-1}(X_i^\top \beta^{(k)})$$
+2. Calculate the adjusted dependent responses $Z_i^{(k)}$  
+3. Compute the weights ${W}^{(k)} = {W}(\beta^{(k)})$  
+4. Regress (i.e., WLS) ${Z}^{(k)}$ on the design matrix ${X}$ with weight ${W}^{(k)}$ to derive a new estimate:  
+$$\beta^{(k + 1)} = ({X}^\top {W}^{(k)} {X})^{-1} {X}^\top {W^{(k)}} Z^{(k)}$$
+5. Repeat until convergence.
+
+
+For this procedure we need:  
+
+- ${X}$ and ${Y}$ (the data) and initial values of $\beta$
+- For the weight matrix we need:
+  - $\partial \mu / \partial X\beta$, where $X \beta$ is often written as $\eta$, so we need $\mu'(\eta)$ (recall $\mu = g^{-1}(\eta)$, so $\mu' = (g^{-1})'$)
+  - $Var(\mu)$, the variance for the exponential family as a function of $\mu$
+  - $\phi$, the dispersion term, which is constant for some expoential families.
+- For the response vector $Z$ we need:
+  - $\mu'(\eta)$, already needed to compute $W$
+
+
+## Weighted Least Squares
+
+Since we are going to need WLS for the IRLS procedure, we can implement that first.  
+
+Above we saw that a WLS has the solution:  
+$$\hat{\beta} = ({X}^\top {W} {X})^{-1} {X}^\top {W} Y$$
+However, note that we can rewrite the weight matrix as $W = \sqrt{W} \sqrt{W}$ because it is positive semidefinite (it is a diagonal matrix and has only positive entries on the diagonal), which just means that it's valid for us to write the above identity (since $x^\top W x \ge 0 , ~~\forall x \in R$).   
+
+Thus, we can re-write this as:  
+
+$$\hat{\beta} = (\sqrt{W}{X}^\top \sqrt{W}{X})^{-1} \sqrt{W}{X}^\top \sqrt{W} Y$$
+
+Which is the same solution as typical linear regression ($\hat{\beta} = ({X}^\top {X})^{-1} {X}^\top Y$) where the response variable and design matrix are pre-multiplied by $\sqrt{W}$.  
+
+(This is mainly useful because it allows us to re-use statistical routines - for example, we could essentially do a `lm` regression of `(sqrt(w) * y) ~ (sqrt(w) * x)`)
+
+```{r}
+wls <- function(y, x, w = rep_len(1L, nrow(x))) {
+  # y = Response vector
+  # x = Design matrix
+  # w = Weights vector - i.e., diag of weights matrix.
+  #     Default is all 1s, equivalent to linear regression.
+  y <- as.matrix(y, ncol = 1)
+  x <- as.matrix(x)
+  if (is.matrix(w)) stop("Weights must be a vector.")
+  if (any(w < 0)) stop("Weights must be positive.")
+  # solve(t(xw) %*% xw) %*% t(xw) %*% yw, below should be faster
+  sqw <- sqrt(w)
+  xw <- x*sqw
+  yw <- y*sqw
+  betas <- crossprod(
+    solve(crossprod(xw)),
+    crossprod(xw, yw)
+  )
+  return(c(betas))
+}
+
+y <- rnorm(100)
+x <- cbind(1, rnorm(100), rnorm(100))
+w <- with(list(x = rbinom(100, 1, 0.5)), {x / sum(x)})
+
+cat("Our wls coefs:\n", wls(y, x, w))
+
+cat("stats::lm.wfit coefs:\n", coef(lm.wfit(y = y, x = x, w = w)))
+
+yw <- sqrt(w) * y
+xw <- sqrt(w) * x
+cat("stats::lm with y and x pre-multiplied by sqrt(w) coefs:\n",
+    coef(lm(yw ~ -1 + xw)), "\n")
+```
+
+## IRLS Algorithm
+
+Now we can implement the IRLS algorithm.
+
+I also added in estimation of the dispersion parameter and variance-covariance matrix (and standard errors). See notes for details. 
+
+The function takes in the data and a "fam" object which is just a bare-bones implementation of `stats::family` objects. The "fam" object contains the family-specific functions needed in the IRLS steps.
+
+I also use an initializer function attached to the "fam" instance (`fam$init_mu`), which uses initialization techniques borrowed from `stats::glm` and `stats::family` to get good starting values for $\beta$ (and technically $\mu$).  
+In my experience, it is important to initialize well or the algorithm may not converge. 
+
+```{r}
+fit_glm_irls <- function(X, y, fam, tol = 1e-8, maxit = 25) {
+  # X: design matrix
+  # y: response vector
+  # fam: provide a family instance to specify the type of GLM
+  # tol: stopping tolerance
+  # maxit: maximum number of iterations
+  x <- as.matrix(X)
+  y <- as.matrix(as.numeric(y), ncol = 1)
+  #
+  # IRLS
+  #
+  # init mu/beta
+  beta <- rep_len(0, ncol(x))
+  mustart <- fam$init_mu(y = y)
+  for (it in 1:maxit) {
+    eta <- if (it == 1) fam$link(mustart) else x %*% beta  # Xb
+    mu  <- if (it == 1) mustart else fam$link_inv(eta) # g(mu) = Xb
+    mueta <- fam$mu_eta(eta)  # deriv of mu wrt to eta
+    z <- eta + (y - mu) / mueta  # working response vec
+    w <- as.vector((mueta^2) / fam$variance(mu))  # weight diag
+    betaold <- beta
+    beta <- wls(y = z, x = x, w = w)
+    # are we there yet?
+    diff <- sqrt(crossprod(beta - betaold)) # l2 norm, ie norm(b-bo, type="2")
+    cat(paste0("[",it,"/",maxit,"]: l2 norm = ", diff, "\n"))
+    if (diff < tol) break
+  }
+  #
+  # dispersion
+  #
+  mu_final <- fam$link_inv(x %*% beta) # final fitted values
+  residual <- y - mu_final
+  weights <- 1 # no weights atm
+  # include bernoulli for convenience
+  if (fam$name_family %in% c("bernoulli", "binomial", "poisson")) {
+    phi <- 1
+  } else {
+    # this is how R does it: (1 / (n-p)) * weights * (y - mu)^2
+    phi <- sum(weights * (residual)^2) / (nrow(x) - ncol(x))
+  }
+  #
+  # variance-covariance matrix
+  #
+  vc <- phi * solve(crossprod(sqrt(w) * x))
+  #
+  return(list(
+    coefficients = beta,
+    it = it,
+    vcov = vc,
+    se = sqrt(diag(vc)),
+    dispersion = phi
+  ))
+}
+
+```
+
+
+## Bernoulli IRLS
+
+Given $\theta = h(X \beta)$, where $h$ is identity under the canonical link:  
+
+The canonical logit link function $g(\mu)$ is $\log(\frac{\mu}{1 - \mu}) = \theta$.  
+Its inverse is the logistic function:  
+$$
+\mu(\theta) = g^{-1}(\theta) = \frac{1}{1 + \exp(-\theta)}
+$$
+
+And the derivative of the inverse is:  
+$$
+\mu'(\theta) = \frac{\exp(-\theta)}{(\exp(-\theta) +1)^2}
+$$
+The variance function of $\mu$ is:  
+$$
+Var(\mu) = \mu(1 - \mu)
+$$
+
+
+For the bernoulli family, $\phi = 1$. 
+
+```{r}
+#
+# bernoulli family helpers
+#
+link.bernoulli <- function(theta) {
+  theta[theta == 0] <- .Machine$double.eps
+  theta[theta == 1] <- 1 - .Machine$double.eps
+  return(log(theta / (1 - theta)))
+}
+
+link_inv.bernoulli <- function(theta) {
+  # sigmoid
+  return(1 / (1 + exp(-theta))) 
+}
+
+mu_eta.bernoulli <- function(eta) {
+  ene <- exp(-eta)
+  return(ene / (ene + 1)^2)
+}
+
+variance.bernoulli <- function(mu) {
+  return(mu * (1 - mu))
+}
+
+# based on binomial()$init
+init_mu.bernoulli <- function(y) {
+  return((y + 0.5) / 2)
+}
+
+init_bernoulli <- function(link = c("logit")) {
+  link <- match.arg(link)
+  new <- list(
+    name_family = "bernoulli",
+    name_link = link,
+    link = link.bernoulli,
+    link_inv = link_inv.bernoulli,
+    mu_eta = mu_eta.bernoulli,
+    variance = variance.bernoulli,
+    init_mu = init_mu.bernoulli
+  )
+  return(new)
+}
+```
+
+
+```{r}
+# SIM DATA
+fam <- init_bernoulli()
+xraw <- cbind(1, rnorm(100), rnorm(100))
+p_true <- fam$link_inv(1 + 2 * xraw[,1] + 3 * xraw[,2])
+yraw <- rbinom(100, size = 1, prob = p_true)
+mod_bern <- fit_glm_irls(X = xraw, y = yraw, fam = fam)
+
+cat("Our IRLS:",
+    "\n coef: ", coef(mod_bern),
+    "\n SEs:  ", mod_bern$se,
+    "\n dispersion: ", mod_bern$dispersion,
+    "\n   converged in", mod_bern$it, "fisher-scoring/IRLS iterations.\n")
+
+fitglm <- glm(yraw ~ -1 + xraw, family = binomial(link = "logit"))
+summary(fitglm)
+```
+
+
+
+### Example with Data: Bernoulli (logistic regression) on the kyphosis dataset
+
+**DATA**:  
+
+The kyphosis dataset represents data on children who have had corrective spinal surgery.  
+
+Variables:
+
+- kyphosis: indicates if kyphosis, a type of deformation, is present after the operation  
+- age: age of patient in months  
+- number: the number of vertebrae involved  
+- start: the number of the first (topmost) vertebra operated on  
+
+
+```{r}
+kyphosis <- read.csv("https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/rpart/kyphosis.csv")
+names(kyphosis) <- tolower(names(kyphosis))
+kyphosis <- within(kyphosis, {
+  rownames <- NULL
+  present <- kyphosis == "present" # binary response
+})
+xvars <- c("age", "number", "start")
+
+head(kyphosis)
+
+
+# GLM (logistic regression)
+# Y|X ~ Bernoulli(p)
+# canonical logit link
+fam <- init_bernoulli("logit")
+x <- cbind(intercept = 1, kyphosis[, xvars])
+y <- kyphosis$present
+mod_kyph <- fit_glm_irls(X = x, y = y, fam = fam)
+
+
+cat("Our IRLS:",
+    "\n coef: ", coef(mod_kyph),
+    "\n SEs:  ", mod_kyph$se,
+    "\n dispersion: ", mod_kyph$dispersion,
+    "\n   converged in", mod_kyph$it, "fisher-scoring/IRLS iterations.\n")
+
+fitglm <- glm(present ~ age + number + start,
+              family = binomial(link = "logit"),
+              data = kyphosis)
+summary(fitglm)
+
+# compute on "new" data...
+testage <- data.frame(intercept = 1,
+                      age = 1:600, # reasonable values + some
+                      number = mean(kyphosis$number), # hold fixed
+                      start = mean(kyphosis$start))
+
+testage <- within(testage, {
+  bs <- coef(mod_kyph)
+  ses <- mod_kyph$se
+  # ugly but proves a point
+  pred_logit <- bs[1] + age * bs[2] + number * bs[3] + start * bs[4]
+  pred <- fam$link_inv(pred_logit)
+  rm(bs, ses)
+})
+
+# i.e., predict(fitglm, newdata = testage, type = "response")
+plot(testage$age, testage$pred,
+     type = "l",
+     main = "Modeled probability of kyphosis",
+     xlab = "Age (months)", ylab = "P"
+     )
+```
+
+
+
+
+
+
+## Poisson IRLS
+
+Given $\theta = h(X \beta)$, where $h$ is identity under the canonical link:  
+
+The canonical log link function $g(\mu)$ is $\log(\mu) = \theta$.  
+Its inverse is:  
+$$
+\mu(\theta) = g^{-1}(\theta) = \exp(\theta)
+$$
+
+
+And the derivative of the inverse is:  
+$$
+\mu'(\theta) = \exp(\theta)
+$$
+And the variance as a function of $\mu$ is just $\mu$:
+
+$$
+Var(\mu) = \exp(\theta) = \mu
+$$
+(recall $\mu = g^{-1}(\theta)$). That is, the mean and variance are equal in a Poisson model.  
+
+For the poisson family, $\phi = 1$. 
+
+Fairly simple!
+
+```{r}
+#
+# poisson family helpers
+#
+link.poisson <- function(theta) {
+  theta[theta == 0] <- .Machine$double.eps
+  return(log(theta))
+}
+
+link_inv.poisson <- function(theta) {
+  return(pmax(exp(theta), .Machine$double.eps))
+}
+
+mu_eta.poisson <- function(theta) {
+  return(pmax(exp(theta), .Machine$double.eps))
+}
+
+variance.poisson <- function(mu) {
+  return(mu)
+}
+
+# based on possion()$init
+init_mu.poisson <- function(y) {
+  return(y + 0.1)
+}
+
+init_poisson <- function(link = c("log")) {
+  link <- match.arg(link)
+  new <- list(
+    name_family = "poisson",
+    name_link = link,
+    link = link.poisson,
+    link_inv = link_inv.poisson,
+    mu_eta = mu_eta.poisson,
+    variance = variance.poisson,
+    init_mu = init_mu.poisson
+  )
+  return(new)
+}
+```
+
+```{r}
+# SIM DATA
+fam <- init_poisson()
+xraw <- cbind(1, rnorm(100), rnorm(100))
+lambda_true <- fam$link_inv(1 + 2 * xraw[,1] + 3 * xraw[,2])
+yraw <- rpois(100, lambda = lambda_true)
+mod_pois <- fit_glm_irls(X = xraw, y = yraw, fam = fam)
+
+cat("Our IRLS:",
+    "\n coef: ", coef(mod_pois),
+    "\n SEs:  ", mod_pois$se,
+    "\n dispersion: ", mod_pois$dispersion,
+    "\n   converged in", mod_pois$it, "fisher-scoring/IRLS iterations.\n")
+
+fitglm <- glm(yraw ~ -1 + xraw, family = poisson(link = "log"))
+summary(fitglm)
+```
+
+
+
+### Example with Data: Poisson GLM with the Seatbelts dataset
+
+**DATA**:  
+
+The `Seatbelts` dataset contains information collected on monthly totals of car accidents in Great Britain from 1969 to 1984.  
+
+Variables:  
+
+- DriversKilled: count of drivers killed  
+- kms: distance driven  
+- PetrolPrice: petrol price  
+
+
+```{r}
+seatbelts <- data.frame(Seatbelts)
+head(seatbelts)
+xvars <- c("kms", "PetrolPrice")
+
+# GLM (poisson regression)
+# Y|X ~ Poisson(lambda)
+# canonical log link
+fam <- init_poisson("log")
+x <- cbind(intercept = 1, seatbelts[, xvars])
+y <- seatbelts$DriversKilled 
+mod_driv <- fit_glm_irls(X = x, y = y, fam = fam)
+
+
+cat("Our IRLS:",
+    "\n coef: ", coef(mod_driv),
+    "\n SEs:  ", mod_driv$se,
+    "\n dispersion: ", mod_driv$dispersion,
+    "\n   converged in", mod_driv$it, "fisher-scoring/IRLS iterations.\n")
+
+fitglm <- glm(DriversKilled ~ kms + PetrolPrice,
+              family = poisson("log"),
+              data = seatbelts)
+summary(fitglm)
+
+# compute on "new" data...
+testpetrol <- data.frame(intercept = 1,
+                         kms = mean(seatbelts$kms), # hold fixed
+                         PetrolPrice = seq(0, 0.5, length = 500)) 
+
+testpetrol <- within(testpetrol, {
+  bs <- coef(mod_driv)
+  # ugly but proves a point
+  pred_logit <- bs[1] + kms * bs[2] + PetrolPrice * bs[3]
+  pred <- fam$link_inv(pred_logit)
+  rm(bs)
+})
+
+# i.e., predict(fitglm, newdata = testpetrol, type = "response")
+plot(testpetrol$PetrolPrice, testpetrol$pred,
+     type = "l",
+     main = "Modeled count of drivers killed",
+     xlab = "Petrol Price", ylab = "Count"
+     )
+
+```
+
+
+
+
+# TODO:
+Deviance  
+
+proper prediction function with se.fit for CI bounds
+

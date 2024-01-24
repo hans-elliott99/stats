@@ -263,7 +263,7 @@ See this [stack exchange.](https://stats.stackexchange.com/questions/246047/inde
     - homskedastic == "same scaling" - and since they are Gaussian, this corresponds to having the same $\sigma^2$.
 3. The noise vector $\varepsilon$ is Gaussian:  
 $\varepsilon \sim N_n(0, \sigma^2 I_n)~~~$  for some unkown $\sigma^2 > 0$
-    - The errors are independent (so we have the identity covariance matrix) and we want them to be centered (mean 0) so that there is no "preferred" direction in which they move $Y$ away from the $\bold{X}\bold{\beta}$ plane.
+    - The errors are independent (so we have the identity times a constant for the covariance matrix) and we want them to be centered (mean 0) so that there is no "preferred" direction in which they move $Y$ away from the $\bold{X}\bold{\beta}$ plane.
     - Remember, if we assume $\bold{X}$ is random and not deterministic, we say that $\varepsilon | X$ is distributed this way.
 
 - These assumptions allow us to write the distribution of $\hat{\beta}$. If we know the distribution and thus the fluctuations of our estimator around the true parameter, we can build confidence intervals, tests, etc. 
@@ -281,7 +281,7 @@ plugging in $Y = \bold{X}\beta + \varepsilon$:
     - No we use that for Gaussian random vectors, $\varepsilon \sim N(0, \Sigma) \longrightarrow B \varepsilon \sim N(0, B \Sigma B^\top)$,  
     where here $\Sigma = I \sigma^2$, and $B = (X^\top X)^{-1}X^\top$
 - $= I \beta + N_p(0, ~\sigma^2~((\bold{X}^\top \bold{X})^{-1} \bold{X}^\top \bold{X} (\bold{X}^\top\bold{X})^{-1}) )$  
-    - Also we  rewrite the transpose on the far RHS of the covariance matrix because the matrix is symmetric - $[(X^\top X)^{-1} X^\top]^\top = X (X^\top X)^{-1}$ 
+    - Also we  rewrote the transpose on the far RHS of the covariance matrix because the matrix is symmetric - $[(X^\top X)^{-1} X^\top]^\top = X (X^\top X)^{-1}$ 
     - On the left side of the covariance matrix things cancel out to identity leavinig us with:
 - $= \beta + N_p(0, ~\sigma^2~(\bold{X}^\top \bold{X})^{-1})$
 - Thus, $\hat{\beta}$ is of the form $\beta$ + centered Gaussian, thus its own distribution is Guassian with mean = $\beta$ and covariance = $\sigma^2(X^\top X)^{-1}$.
@@ -567,7 +567,16 @@ It is, thus, interpreted as an estimate of the variation in the estimate $\hat{\
 - $SE(\hat{\beta}_j) = \sqrt{\sigma^2 (\bold{X}^\top \bold{X})^{-1}_{j,j}}$
 - [On the interpretation](https://stats.stackexchange.com/questions/391254/standard-error-of-simple-linear-regression-coefficients)  
 - [On the calculation](https://stats.stackexchange.com/questions/44838/how-are-the-standard-errors-of-coefficients-calculated-in-a-regression/44841#44841)
-
+    - We model $Y|X \sim N(X \beta, \sigma^2 \bold{I})$
+    - We know that $\hat{\beta} = (\bold{X}^\top \bold{X})^{-1} \bold{X}^\top \bold{Y}$  
+    and $Var(Y) = \sigma^2 \bold{I}$
+    - Consider that for a non-random matrix $A$ and random matrix $X$, $Var(AX) = A Var(X) A^\top$. Considering that we treat $\bold{X}$ as deterministic when conditioned upon, we can write the variance-covariance matrix of $\beta$ as:
+        - $Var(\beta) = (\bold{X}^\top \bold{X})^{-1} \bold{X}^\top ~~ \sigma^2 \bold{I} ~~ \bold{X}(\bold{X}^\top \bold{X})^{-1}$  
+    $= \sigma^2 (\bold{X}^\top \bold{X})^{-1}(\bold{X}^\top \bold{X})(\bold{X}^\top \bold{X})^{-1}$  
+    $= \sigma^2 (\bold{X}^\top \bold{X})^{-1}$
+    - This lines up with what we've seen earlier: the "sampling distribution" of the $\hat{\beta}$ is $\hat{\beta} \sim N_n(\beta, \sigma^2(\bold{X}^\top \bold{X})^{-1})$
+    - And in empirical settings we can use $\hat{\sigma}^2$ instead (see above for derivation) 
+    - The "standard error" is parallel to the standard deviation of a $\hat{\beta}_j$, so to get them we just take the square root of the diagonal elements of the variance-covariance matrix.
 
 
 ## Extras:
@@ -590,7 +599,7 @@ The $i$-th observation (i.e., $i$-th row of the data and $i$-th row of $\bold{P}
 
 ```
 
-Notice that for the second observation, it is the second diagonal of the hat matrix (e) which multiplies with the second observation of y (y2). It is natural to think of it as being directly related to the second observation's influence on the fitted values.
+Notice that for the second observation, it is the second diagonal of the hat matrix (e) which multiplies with the second observation of y (y2). It is natural to think of "e" as being directly related to the second observation's influence on the fitted values.
 
 Here is a good related stack exchange: [Hat matrix and leverages in classical multiple regression](https://stats.stackexchange.com/questions/208242hat-matrix-and-leverages-in-classical-multiple-regression).
 

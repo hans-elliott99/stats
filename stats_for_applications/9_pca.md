@@ -74,7 +74,7 @@ where $\it{H} = \it{I}_n - \frac{1}{n} \it{1}\it{1}^\top$
         - For the second term, note that $\bar{X}\bar{X}^\top = \frac{1}{n^2} (\bold{X}^\top \it{1}) (\bold{X}^\top \it{1})^\top = \frac{1}{n^2}(\bold{X}^\top \it{1})(\it{1}^\top \bold{X}) = \frac{1}{n^2}\bold{X}^\top \it{1}\it{1}^\top \bold{X}$
 
 ### Some important properties of the variance
-Take a vector $u \in \R^d$. If $\Sigma$ is the variance matrix of $X$, then:  
+Take a vector $u \in \R^d$. If $\Sigma$ is the covariance matrix of $X$, then:  
 $u^\top \Sigma u$ is the variance of $u^\top X$
 - $u^\top \Sigma u =  u^\top [E[XX^\top] - E[X]E[X]^\top] u$
 - $u$ is deterministic, so we can push it into the expectation:  
@@ -95,7 +95,7 @@ In particular, $u^\top \Sigma u$ measures how spread (i.e., diverse) the points 
 Coordinates, by definition, are attached to a coordinate system.  
 So we know what the covariances are of these particular combinations of $X$ coordinates, but not the covariances of other things - such as the covariance between a linear combination of the coordinates - or in other directions.  
 If we pre and post multiply $\Sigma$ by $u$, the result is actually telling us what the variance of $X$ is along direction $u$. 
-- We are interested in variance when thinking about dimension reductions because we do not want all of our points to collapse into a single point when we project them onto a space of smaller dimensions. We want to maintain the information in our data, while still reducing the dimesnions. Variance is a sound (though not the only) way to measure spread between points. If variance is high, it is likely the points are spread, and less likely they project to the same point.
+- We are interested in variance when thinking about dimension reductions because we do not want all of our points to collapse into a single point when we project them onto a space of smaller dimensions. We want to maintain the information in our data, while still reducing the dimensions. Variance is a sound (though not the only) way to measure spread between points. If variance is high, it is likely the points are spread, and less likely they project to the same point.
 
 We will see that Principal Components Analysis will try to identify the directions $u$ where we have a lot of variance, and eliminate the directions on which we do not have a lot of variance.
 Why?
@@ -233,11 +233,12 @@ Recap:
 - We can decompose our empirical covariance matrix into $S = PDP^\top$
 - Then if we permute $P$ and $D$ such that $P$'s first column, the eigenvector $v_1$, corresponds to the largest eigenvalue, $\lambda_1$, in $D$'s diagonal, then **$v_1$ is the direction on which if I project my points they are going to carry the most empirical variance.**
 - So if we want one principal component, the result of PCA will be $v_1$. If we want 2, the result will be $v_2$, etc.
+- Once we have the principal components, we just need to project the $X_i$'s onto them.
 
 
 ## Prinicpal Components Analysis: Core Idea
 
-**Idea of the PCA:** find the collection of orthogonal directions in which the point cloud is much spread out.  
+**Idea of the PCA:** find the collection of orthogonal directions in which the point cloud is most spread out.  
 
 **Theorem**  
 $$
@@ -249,6 +250,7 @@ $$
 - start by picking the direction which maximizes the empirical variance
 - then pick the direction which maximizes the conditions: maximizes empirical variance while also orthogonal to all of the previously picked directions
 - this is exactly equivalent to picking the eigenvectors, descending from highest eigenvalue to lowest eigenvalue
+- then project $X_i$'s onto them
 
 Hence, the $k$ orthogonal directions in which the cloud is the most spread out corresponds exactly to the eigenvectors associated with the $k$ largest values of $S$.  
 **These are the $k$ principal components.**
@@ -268,7 +270,8 @@ PCA combines three core ideas:
 $$
 Y_i = P_k^\top X_i ~~ \in R^k, i = 1,...,n
 $$
-    - This is a simple way to project onto the linear span of the $v_1, ..., v_k$ columns. $P_k^\top$ is the $k \times d$ matrix where the rows are $v_1, ..., v_k$, so when we multiply with $X_i$, we get a $k$-dim vector
+- Last step is just a simple way to write the projection of $X$ onto the linear span of the $v_1, ..., v_k$ columns. $P_k^\top$ is the $k \times d$ matrix where the rows are $v_1, ..., v_k$, so when we multiply with $X_i$ (a $d \times 1$ vector), we get a $k$-dim vector. Repeat $n$ times and we are left with an $n \times k$ matrix of data.
+
 
 **How to choose $k$?**
 Relatively arbitrary methods...
@@ -284,7 +287,7 @@ for some $\alpha \in (0,1)$ that determines the approximation error that the pra
 - Data Visualization: take $k = 2$ or $3$
 
 Why use PCA other than visualization?
-- Once we have compute the PCA, we have effectively reduced the dimension of our problem while (ideally) maintaining as much information as possible - a summary or compression of our $X_i$'s.
+- Once we have computed the PCA, we have effectively reduced the dimension of our problem while (ideally) maintaining as much information as possible - a summary or compression of our $X_i$'s.
 - We could then use these principal components for regression, for example (principal component regression).
 
 
@@ -327,3 +330,15 @@ $S'$ will be a better estimator of $S$ under the low-rank assumption.
 Proof that $\bold{X}^\top \bold{X} = \Sigma_{i=1}^n X_i X_i^\top$  
 ([Reference.](#go-proof1))
 <img src="./assets/pca_matrix2.png">
+
+
+## Extra Notes
+
+Rescaling data before PCA (i.e., removing mean and dividing by a constant, typically the standard deviation):  
+- This is intuitive: we are maximizing variance (along the directions given by the eigenvectors), so we don't want the magnitude of a variables' units, i.e. the scale it is measured on, to impact the relative variances.   
+- https://stats.stackexchange.com/questions/69157/why-do-we-need-to-normalize-data-before-principal-component-analysis-pca  
+- https://scikit-learn.org/stable/auto_examples/preprocessing/plot_scaling_importance.html
+
+
+[Visualize spectral decomposition (youtube)](https://youtu.be/mhy-ZKSARxI?si=9PLOeW2JyHiocPWi) 
+
