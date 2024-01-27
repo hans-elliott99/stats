@@ -1,6 +1,9 @@
 ---
 title: "Principal Components Analysis"
-format: html
+format:
+  html:
+    embed-resources: true
+toc: true
 ---
 
 ```{r}
@@ -9,13 +12,14 @@ library(ggplot2)
 ```
 
 
+# Algorithm
 
 Recall:  
 Empirical covariance matrix:  
 
 $$
-S = \frac{1}{n} \Sigma_{i=1}^n X_i X_i^\top - \bar{X}\bar{X}^\top \\
-~~~~~~~~~~~~~= \frac{1}{n} \Sigma_{i=1}^n (X_i - \bar{X})(X_i - \bar{X})^\top \\
+S = \frac{1}{n} \Sigma_{i=1}^n X_i X_i^\top - \bar{X}\bar{X}^\top \\\
+~~~~~~~~~~~~~= \frac{1}{n} \Sigma_{i=1}^n (X_i - \bar{X})(X_i - \bar{X})^\top \\\
 $$  
 
 Or, if we let $X$ be the $n \times d$ matrix of covariates, and $\it{1}$ be the $n \times 1$ vector of all 1s, then:  
@@ -120,9 +124,9 @@ ggplot(tve, aes(x = component, y = proportion)) +
 In the lecture, there is an example of a PCA analysis where someone ran PCA and then tried to interpret each component as a category. Such an analysis results in a qualitative/descriptive output that might inform a business strategy (or maybe policy for this particular dataset?). 
 
 
-It makes some sense to do this - imagine you only have 2 features so there are only 2 elements in each component vector. Then you could plot them each as a point in the xy-plane, where the x-axis corresponds to feature 1 and the y-axis corresponds to feature 2.  
-If the first component vector has a relatively small first coordinate and relatively large second coordinate, than the resulting point will be close to the x-axis, implying the second feature is more important for this coordinate. The opposite is true if the first coordinate is large relative to the second coordinate.  
-Further, if we consider that the components become the coefficients that multiply with the values of $X$ to produce $Y$ ($Y = Xp$), it makes sense to investigate them as we might a linear regression.  
+It makes some sense to do this - imagine you only have 2 features so there are only 2 elements in each component vector (i.e., each eigen vector of the covariance matrix is 2 x 1). Then you could plot them each as a point in the xy-plane, where the x-axis corresponds to feature 1 and the y-axis corresponds to feature 2.  
+If the first component vector has a relatively small first coordinate and relatively large second coordinate, than the resulting point will be close to the x-axis and away from the y-axis, implying the second feature is more important for this coordinate. The opposite is true if the first coordinate is large relative to the second coordinate.  
+Further, if we consider that the components become the coefficients that multiply with the values of $X$ to produce $Y$ ($Y = Xp$), it seems intuitive to try to investigate them as we might a linear regression.  
 
 This implies a strategy of looking at the elements in each component vector and trying to determine how the values which are largest in magnitude work together to suggest some natural group.  
 

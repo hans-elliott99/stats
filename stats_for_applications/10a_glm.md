@@ -470,6 +470,9 @@ Nice notes on applied GLM from Professor Chris Adolph ("Maximum Likelihood Metho
 - https://faculty.washington.edu/cadolph/index.php?page=21  
 (first 2 lectures are review, could be skipped)
 
+GLM Inference Chapter
+- https://bookdown.org/egarpor/PM-UC3M/glm-inference.html
 
-### Deviance
-See: https://bookdown.org/egarpor/PM-UC3M/glm-deviance.html
+
+Deviance:
+- See: https://bookdown.org/egarpor/PM-UC3M/glm-deviance.html

@@ -1,7 +1,10 @@
 ---
 title: "Testing Goodness of Fit"
 author: "Hans Elliott"
-format: html
+format:
+  html:
+    embed-resources: true
+toc: true
 ---
 
 ```{r}
@@ -12,7 +15,7 @@ set.seed(1614)
 ## Kolmogorov-Smirnov Test
 
 ```{r}
-dyn.load(here::here("applied_stats/src/ks.so"))
+dyn.load(here::here("stats_for_applications/src/ks.so"))
 
 pKolmogorov2x <- function(x, n) {
     # Compute probability of x in Kolmogrov distribution

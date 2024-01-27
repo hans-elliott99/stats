@@ -3,10 +3,8 @@ title: "Generalised Linear Models"
 author: Hans Elliott
 format:
   html:
-    html-math-method: katex
-editor: 
-  markdown: 
-    wrap: 72
+    embed-resources: true
+toc: true
 ---
 
 In the previous GLM examples we derived log-likelihood functions in
@@ -149,7 +147,7 @@ For this procedure we need:
 -   For the weight matrix we need:
     -   $\partial \mu / \partial X\beta$, where $X \beta$ is often
         written as $\eta$, so we need $\mu'(\eta)$ (recall
-        $\mu = g^{-1}(\eta)$, so $\mu' = (g^{-1})'$)
+        $\mu = g^{-1}(\eta)$, so $\mu' = (g^{-1})'$). This is the function that `stats::glm` refers to as `mu.eta`.
     -   $Var(\mu)$, the variance for the exponential family as a
         function of $\mu$
     -   $\phi$, the dispersion term, which is constant for some
@@ -180,7 +178,7 @@ variable and design matrix are pre-multiplied by $\sqrt{W}$.
 
 (This is mainly useful because it allows us to re-use statistical
 routines - for example, we could essentially do a `lm` regression of
-`(sqrt(w) * y) ~ (sqrt(w) * x)`)
+`(sqrt(w) * y) ~ (sqrt(w) * x)`, see below...)
 
 ```{r}
 wls <- function(y, x, w = rep_len(1L, nrow(x))) {
@@ -217,7 +215,17 @@ cat("stats::lm with y and x pre-multiplied by sqrt(w) coefs:\n",
     coef(lm(yw ~ -1 + xw)), "\n")
 ```
 
-## IRLS Algorithm
+
+
+## GLM's Dispersion Parameter
+
+For some distributions, the dispersion parameter is assumed to be 1. For others, it is technically unknown and may be considered a "nuisance parameter" in the frequntist framework. For example, in linear regression $\hat{\sigma}^2$ in $\hat{\beta} \sim N_p(\beta, \sigma^2 (X^\top X)^{-1})$ (i.e., part of the variance of $\beta$) is considered a nuisance parameter because it is not the quantity of interest but is needed for hypothesis testing of the quantity of interest. In fact, $\sigma^2$ is the dispersion parameter for the Gaussian GLM.  
+
+
+
+
+
+## IRLS Implementation
 
 Now we can implement the IRLS algorithm.
 
@@ -259,7 +267,7 @@ fit_glm_irls <- function(X, y, fam, tol = 1e-8, maxit = 25) {
     betaold <- beta
     beta <- wls(y = z, x = x, w = w)
     # are we there yet?
-    diff <- sqrt(crossprod(beta - betaold)) # l2 norm, ie norm(b-bo, type="2")
+    diff <- sqrt(crossprod(beta - betaold)) # l2 norm, ie norm(..., type="2")
     cat(paste0("[",it,"/",maxit,"]: l2 norm = ", diff, "\n"))
     if (diff < tol) break
   }
@@ -292,7 +300,7 @@ fit_glm_irls <- function(X, y, fam, tol = 1e-8, maxit = 25) {
 
 ```
 
-## Bernoulli IRLS
+## Example: Bernoulli IRLS
 
 Given $\theta = h(X \beta)$, where $h$ is identity under the canonical
 link:
@@ -446,7 +454,7 @@ plot(testage$age, testage$pred,
      )
 ```
 
-## Poisson IRLS
+## Example: Poisson IRLS
 
 Given $\theta = h(X \beta)$, where $h$ is identity under the canonical
 link:
@@ -529,6 +537,7 @@ cat("Our IRLS:",
 fitglm <- glm(yraw ~ -1 + xraw, family = poisson(link = "log"))
 summary(fitglm)
 ```
+
 
 ### Example with Data: Poisson GLM with the Seatbelts dataset
 

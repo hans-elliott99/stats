@@ -1,7 +1,10 @@
 ---
 title: "Hypothesis Testing"
 author: "Hans Elliott"
-format: html
+format:
+  html:
+    embed-resources: true
+toc: true
 ---
 
 ## Chi-Squared Test of Propotions

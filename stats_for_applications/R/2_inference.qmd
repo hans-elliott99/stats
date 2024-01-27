@@ -1,7 +1,10 @@
 ---
 title: "Statistical Inference Introduction"
 author: "Hans Elliott"
-format: html
+format:
+  html:
+    embed-resources: true
+toc: true
 ---
 
 Example:  

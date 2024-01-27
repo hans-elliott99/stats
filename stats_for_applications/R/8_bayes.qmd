@@ -1,31 +1,19 @@
 ---
 title: "Bayesian Statistics"
 author: "Hans Elliott"
-format: html
+format:
+  html:
+    embed-resources: true
+toc: true
 ---
+
+# Bayesian Analysis / Bayes Rule
 
 ```{r}
 pacman::p_load(
   ggplot2,
   hdrcde
 )
-
-init_rescaler <- function(...) {
-  vals <- unlist(list(...))
-  a <- min(vals)
-  b_a <- max(vals) - a
-  if (b_a == 0)
-    stop("Only one value supplied. At least 2 unique values needed.")
-  rm(vals)
-  # a + (b-a) * (x - min(x))/(max(x) - min(x)) --> [a,b]
-  function(x, minx = min(x)) {
-    maxx <- max(x)
-    if (minx == maxx)
-      stop("Only one value supplied. Can't rescale.")
-    return(a + b_a * (x - minx) / (maxx - minx))
-  }
-}
-
 
 set.seed(1614)
 ```
@@ -35,10 +23,12 @@ set.seed(1614)
 # - what is the proportion of the world's population that is female?
 # - we assume it's probably about 0.5 - that informs our prior
 
-# gen some Bernoulli data - assume true p is actually 0.55
+# gen some Bernoulli data - let's say the true p is actually 0.55
 n <- 100
 ptrue <- 0.55 # true parameter p
 X <- rbinom(n, size = 1, p = ptrue)
+
+# Define Prior:
 # Use a Beta(a, b) prior, which has mean 0.5 if a=b (since E[X] = a / (a + b))
 a <- 10
 b <- a
@@ -173,6 +163,7 @@ $p_n(X_1,...,X_n | \lambda) = \Pi_{i=1}^n ~ \frac{e^{-\lambda} \lambda^{X_i}}{X_
 
 The $Gamma(\alpha, \beta)$ prior is:\
 $\pi(\lambda) = \frac{\beta^\alpha}{\Gamma(\alpha)} \lambda^{\alpha-1} e^{-\beta \lambda}, ~~~ \lambda > 0$  
+
 - Assumes specification of $Gamma$ as $\alpha$ = shape, $\beta$ = rate, so that $E[Gamma] = \alpha/\beta$
 
 The posterior:\

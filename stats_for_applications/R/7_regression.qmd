@@ -1,7 +1,10 @@
 ---
 title: "Linear Regression"
 author: "Hans Elliott"
-format: html
+format:
+  html:
+    embed-resources: true
+toc: true
 ---
 
 ```{r}
@@ -130,6 +133,7 @@ Stacked into matrix form: $Y = X \beta + \varepsilon$
 
 Let's assume $X$ is deterministic.  
 We'll make our Gauss-Markov assumptions:  
+
 - $rank(X) = p$  
 - homoskedastic noise term - so the variance of $\varepsilon$ is the same for all $i$  
 - $\varepsilon_i \sim N(0, \sigma^2)$, for some unkown variance (noise is Gaussian with mean 0)  

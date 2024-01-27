@@ -1,9 +1,13 @@
 ---
 title: "Generalised Linear Models"
-format: html
+format:
+  html:
+    embed-resources: true
+toc: true
 ---
 
 
+# General Log-Likelihood for the Exponential Families
 
 The log likehood function for the canonical exponential family, in terms of $X$ and $\beta$, can be written generally as:
 $$
@@ -19,7 +23,11 @@ In this case of the canonical link, we define the link such that $g = (b')^{-1}$
 
 $\phi$ is the dispersion paramater, and its value varies across the exponential families.  
 
-# Example 1 - Bernoulli (logistic regression) on the kyphosis dataset
+
+Our strategy will be to write the log-likelihood for our model in terms of $X_i^\top \beta$ and then use an optimization method to find the optimal values of $\beta$.  
+In practice, Iteratively Reweighted Least Squares is often used (see next notes), but here we will just use R's `stats::optim` for simplicity, which uses a general-purpose optimization bethod based on Nelder-Mead.  
+
+## Example 1 - Bernoulli (logistic regression) on the kyphosis dataset
 
 Model: $Y|X \sim Bern(\mu(X))$
 
@@ -277,10 +285,5 @@ plot(x, linmod$fitted.values,
      xlab = "prey density",
      ylab = "predicted rate of capture")
 ```
-
-
-
-
-
 
 
