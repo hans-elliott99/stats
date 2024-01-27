@@ -69,8 +69,22 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="10b_glm_irls_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="10b_glm_irls_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
 
-  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+  <script>window.backupDefine = window.define; window.define = undefined;</script><script src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+ var mathElements = document.getElementsByClassName("math");
+ var macros = [];
+ for (var i = 0; i < mathElements.length; i++) {
+  var texText = mathElements[i].firstChild;
+  if (mathElements[i].tagName == "SPAN") {
+   katex.render(texText.data, mathElements[i], {
+    displayMode: mathElements[i].classList.contains('display'),
+    throwOnError: false,
+    macros: macros,
+    fleqn: false
+   });
+}}});
+  </script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.css">
 
 </head>
 
@@ -103,21 +117,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 </header>
 
-<p>In the previous GLM examples we derived log-likelihood functions in terms of <span class="math inline">\(\beta\)</span> for the desired exponential family distributions, and then manually optimized the log-likelihood using R’s <code>stats::optim</code> function.<br>
+<p>In the previous GLM examples we derived log-likelihood functions in terms of <span class="math inline">\beta</span> for the desired exponential family distributions, and then manually optimized the log-likelihood using R’s <code>stats::optim</code> function.<br>
 <code>optim</code> uses several possible general-purpose optimization methods to optimize an input function. While this works, it’s not how GLMs are typically fit.</p>
 <p>In practice GLMs are fit using Iteratively Re-Weighted Least Squares, which is a convenient way to perform Netwon-Raphson or Fisher-scoring updating by reformulating the update procedure as a weighted least squares problem (see lecture notes 10b).</p>
 <section id="newton-raphson-fisher-scoring-optimization-method" class="level2">
 <h2 class="anchored" data-anchor-id="newton-raphson-fisher-scoring-optimization-method">Newton-Raphson / Fisher-Scoring Optimization Method</h2>
-<p>The Newton-Raphson optimization method updates the parameter estimate iteratively, maximizing the log likelihood by performing a modified gradient ascent. At each iteration <span class="math inline">\(k\)</span> we compute <span class="math inline">\(\beta^{(k + 1)} = \beta^{(k)} + [-H_{l_n}(\beta^{(k)})]^{-1} \nabla_{l_n}(\beta^{(k)})\)</span></p>
-<p><span class="math inline">\(l_n\)</span> is the log-likelihood as a function of <span class="math inline">\(\beta\)</span>, <span class="math inline">\(\nabla\)</span> is the gradient of the log-likelihood, and <span class="math inline">\(H\)</span> is the Hessian.</p>
-<p>The Fisher-scoring method replaces the <span class="math inline">\(-H_{l_n}(\beta^{(k)})^{-1}\)</span> term with the (inverse of the) Fisher information matrix, <span class="math inline">\(I(\beta^{(k)})^{-1}\)</span>, since it can sometimes be more convenient to compute.<br>
-At each iteration <span class="math inline">\(k\)</span> we compute <span class="math inline">\(\beta^{(k + 1)} = \beta^{(k)} + I(\beta^{(k)})^{-1} \nabla_{l_n}(\beta^{(k)})\)</span></p>
+<p>The Newton-Raphson optimization method updates the parameter estimate iteratively, maximizing the log likelihood by performing a modified gradient ascent. At each iteration <span class="math inline">k</span> we compute <span class="math inline">\beta^{(k + 1)} = \beta^{(k)} + [-H_{l_n}(\beta^{(k)})]^{-1} \nabla_{l_n}(\beta^{(k)})</span></p>
+<p><span class="math inline">l_n</span> is the log-likelihood as a function of <span class="math inline">\beta</span>, <span class="math inline">\nabla</span> is the gradient of the log-likelihood, and <span class="math inline">H</span> is the Hessian.</p>
+<p>The Fisher-scoring method replaces the <span class="math inline">-H_{l_n}(\beta^{(k)})^{-1}</span> term with the (inverse of the) Fisher information matrix, <span class="math inline">I(\beta^{(k)})^{-1}</span>, since it can sometimes be more convenient to compute.<br>
+At each iteration <span class="math inline">k</span> we compute <span class="math inline">\beta^{(k + 1)} = \beta^{(k)} + I(\beta^{(k)})^{-1} \nabla_{l_n}(\beta^{(k)})</span></p>
 <section id="example-bernoulli" class="level3">
 <h3 class="anchored" data-anchor-id="example-bernoulli">Example: Bernoulli</h3>
 <p>For the Bernoulli family, we can derive (see lecture notes):</p>
 <ul>
-<li><p><span class="math inline">\(\nabla(\beta) = X^\top (\frac{e^{X \beta}}{1 + e^{X \beta}} - Y)\)</span></p></li>
-<li><p><span class="math inline">\(-H(\beta) = I(\beta) = - X^\top diag(\frac{e^{X \beta}}{(1 + e^{X \beta})^2}) X\)</span></p>
+<li><p><span class="math inline">\nabla(\beta) = X^\top (\frac{e^{X \beta}}{1 + e^{X \beta}} - Y)</span></p></li>
+<li><p><span class="math inline">-H(\beta) = I(\beta) = - X^\top diag(\frac{e^{X \beta}}{(1 + e^{X \beta})^2}) X</span></p>
 <ul>
 <li>(the Hessian and Fisher-information matrix are essentially equivalent)</li>
 </ul></li>
@@ -157,27 +171,27 @@ At each iteration <span class="math inline">\(k\)</span> we compute <span class=
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="fu">paste0</span>(<span class="st">"["</span>,it,<span class="st">"/"</span>,maxit,<span class="st">"]: l2 norm = "</span>, diff, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>))</span>
 <span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1/10]: l2 norm = 1.09146855625544
-[2/10]: l2 norm = 0.343752350404935
-[3/10]: l2 norm = 0.0712757095715948
-[4/10]: l2 norm = 0.00263739836473469
-[5/10]: l2 norm = 3.45354232000967e-06
-[6/10]: l2 norm = 5.91344290609927e-12
-[7/10]: l2 norm = 1.11022302462516e-16
-[8/10]: l2 norm = 0
-[9/10]: l2 norm = 0
-[10/10]: l2 norm = 0</code></pre>
+<pre><code>[1/10]: l2 norm = 1.17992917077322
+[2/10]: l2 norm = 0.4777465730683
+[3/10]: l2 norm = 0.12887446547344
+[4/10]: l2 norm = 0.00758441592321258
+[5/10]: l2 norm = 2.4386534411466e-05
+[6/10]: l2 norm = 2.51286276815947e-10
+[7/10]: l2 norm = 2.48253415324727e-16
+[8/10]: l2 norm = 3.14018491736755e-16
+[9/10]: l2 norm = 2.48253415324727e-16
+[10/10]: l2 norm = 1.11022302462516e-16</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Our Newton-Raphson coefficients:</span><span class="sc">\n</span><span class="st">"</span>, beta, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Our Newton-Raphson coefficients:
- 1.095847 0.8156826 0.6096673 </code></pre>
+ 0.8126981 1.275907 0.962636 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>fitglm <span class="ot">&lt;-</span> <span class="fu">glm</span>(y <span class="sc">~</span> xraw, <span class="at">family =</span> <span class="fu">binomial</span>(<span class="at">link =</span> <span class="st">"logit"</span>))</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"stats::glm coefficients:</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">coef</span>(fitglm), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>stats::glm coefficients:
- 1.095847 0.8156825 0.6096673 </code></pre>
+ 0.8126981 1.275907 0.962636 </code></pre>
 </div>
 </div>
 </section>
@@ -185,42 +199,42 @@ At each iteration <span class="math inline">\(k\)</span> we compute <span class=
 <section id="iteratively-reweighted-least-squares" class="level2">
 <h2 class="anchored" data-anchor-id="iteratively-reweighted-least-squares">Iteratively Reweighted Least Squares</h2>
 <p>Using the particular functional form of distributions in the exponential family, we are able to rewrite the Fisher-scoring method as a weighted least squares problem (derivation in notes).</p>
-<p>The IRLS update procedure used to obtain the <span class="math inline">\(k + 1\)</span>-th iteration’s coefficient can be written as:</p>
-<p><span class="math display">\[\beta^{(k + 1)} = ({X}^\top {W} {X})^{-1} {X}^\top {W}(\tilde{{Y}} - \tilde{\mu} + X\beta^{(k)})\]</span> where:</p>
+<p>The IRLS update procedure used to obtain the <span class="math inline">k + 1</span>-th iteration’s coefficient can be written as:</p>
+<p><span class="math display">\beta^{(k + 1)} = ({X}^\top {W} {X})^{-1} {X}^\top {W}(\tilde{{Y}} - \tilde{\mu} + X\beta^{(k)})</span> where:</p>
 <ul>
-<li><span class="math inline">\(W = diag(\frac{h'(X_i^\top \beta)}{g'(\mu_i)\phi})\)</span></li>
-<li><span class="math inline">\(\tilde{Y}_i = Y_i ~ g'(\mu_i)\)</span> and <span class="math inline">\(\tilde{\mu}_i = \mu_i ~ g'(\mu_i)\)</span></li>
-<li><span class="math inline">\(g\)</span> is the link function, such that <span class="math inline">\(\mu_i = g^{-1}(X^\top \beta)\)</span></li>
-<li><span class="math inline">\(h = (b')^{-1} \circ g^{-1}\)</span>, given the cumulant generating function <span class="math inline">\(b\)</span> (<span class="math inline">\(h\)</span> is identity under the canonical link).</li>
+<li><span class="math inline">W = diag(\frac{h'(X_i^\top \beta)}{g'(\mu_i)\phi})</span></li>
+<li><span class="math inline">\tilde{Y}_i = Y_i ~ g'(\mu_i)</span> and <span class="math inline">\tilde{\mu}_i = \mu_i ~ g'(\mu_i)</span></li>
+<li><span class="math inline">g</span> is the link function, such that <span class="math inline">\mu_i = g^{-1}(X^\top \beta)</span></li>
+<li><span class="math inline">h = (b')^{-1} \circ g^{-1}</span>, given the cumulant generating function <span class="math inline">b</span> (<span class="math inline">h</span> is identity under the canonical link).</li>
 </ul>
-<p>A <strong>Weighed Least Squares</strong> problem is concerned with deriving the maximum likelihood estimator by solving: <span class="math inline">\(\min_\beta (Y - {X}\beta)^\top {W} (Y - {X}\beta)\)</span>, which has a closed-form solution: <span class="math display">\[
+<p>A <strong>Weighed Least Squares</strong> problem is concerned with deriving the maximum likelihood estimator by solving: <span class="math inline">\min_\beta (Y - {X}\beta)^\top {W} (Y - {X}\beta)</span>, which has a closed-form solution: <span class="math display">
 \hat{\beta} = ({X}^\top {W} {X})^{-1} {X}^\top {W} Y
-\]</span></p>
+</span></p>
 <p>This matches the update procedure formula above when:</p>
 <ol type="1">
-<li><span class="math inline">\(W = W(\beta^{(k)})\)</span> is the weight matrix</li>
-<li><span class="math inline">\(Y = \tilde{{Y}} - \tilde{\mu} + {X}\beta^{(k)}\)</span> is the response (below called <span class="math inline">\(Z\)</span>)</li>
+<li><span class="math inline">W = W(\beta^{(k)})</span> is the weight matrix</li>
+<li><span class="math inline">Y = \tilde{{Y}} - \tilde{\mu} + {X}\beta^{(k)}</span> is the response (below called <span class="math inline">Z</span>)</li>
 </ol>
 <p>We can also reformulate the working weight matrix and working response vector to utilize more common functions (see notes for math).</p>
-<p><span class="math display">\[{W}^{(k)}= diag \frac{\mu'(X\beta)^2}{Var(\mu) \phi}\]</span> <span class="math display">\[Z_i^{(k)} = X\beta + \frac{(Y_i - \mu_i^{(k)})}{\mu'(X\beta)}\]</span></p>
+<p><span class="math display">{W}^{(k)}= diag \frac{\mu'(X\beta)^2}{Var(\mu) \phi}</span> <span class="math display">Z_i^{(k)} = X\beta + \frac{(Y_i - \mu_i^{(k)})}{\mu'(X\beta)}</span></p>
 <p><strong>Algorithm</strong>:<br>
-Given a <span class="math inline">\(\beta^{(k)}\)</span> at step <span class="math inline">\(k\)</span>, we can obtain <span class="math inline">\(\beta^{(k+1)}\)</span> by the following:<br>
-1. Fix <span class="math inline">\(\beta^{(k)}\)</span> and set: <span class="math display">\[\mu_i^{(k)} = g^{-1}(X_i^\top \beta^{(k)})\]</span> 2. Calculate the adjusted dependent responses <span class="math inline">\(Z_i^{(k)}\)</span><br>
-3. Compute the weights <span class="math inline">\({W}^{(k)} = {W}(\beta^{(k)})\)</span><br>
-4. Regress (i.e., WLS) <span class="math inline">\({Z}^{(k)}\)</span> on the design matrix <span class="math inline">\({X}\)</span> with weight <span class="math inline">\({W}^{(k)}\)</span> to derive a new estimate:<br>
-<span class="math display">\[\beta^{(k + 1)} = ({X}^\top {W}^{(k)} {X})^{-1} {X}^\top {W^{(k)}} Z^{(k)}\]</span> 5. Repeat until convergence.</p>
+Given a <span class="math inline">\beta^{(k)}</span> at step <span class="math inline">k</span>, we can obtain <span class="math inline">\beta^{(k+1)}</span> by the following:<br>
+1. Fix <span class="math inline">\beta^{(k)}</span> and set: <span class="math display">\mu_i^{(k)} = g^{-1}(X_i^\top \beta^{(k)})</span> 2. Calculate the adjusted dependent responses <span class="math inline">Z_i^{(k)}</span><br>
+3. Compute the weights <span class="math inline">{W}^{(k)} = {W}(\beta^{(k)})</span><br>
+4. Regress (i.e., WLS) <span class="math inline">{Z}^{(k)}</span> on the design matrix <span class="math inline">{X}</span> with weight <span class="math inline">{W}^{(k)}</span> to derive a new estimate:<br>
+<span class="math display">\beta^{(k + 1)} = ({X}^\top {W}^{(k)} {X})^{-1} {X}^\top {W^{(k)}} Z^{(k)}</span> 5. Repeat until convergence.</p>
 <p>For this procedure we need:</p>
 <ul>
-<li><span class="math inline">\({X}\)</span> and <span class="math inline">\({Y}\)</span> (the data) and initial values of <span class="math inline">\(\beta\)</span></li>
+<li><span class="math inline">{X}</span> and <span class="math inline">{Y}</span> (the data) and initial values of <span class="math inline">\beta</span></li>
 <li>For the weight matrix we need:
 <ul>
-<li><span class="math inline">\(\partial \mu / \partial X\beta\)</span>, where <span class="math inline">\(X \beta\)</span> is often written as <span class="math inline">\(\eta\)</span>, so we need <span class="math inline">\(\mu'(\eta)\)</span> (recall <span class="math inline">\(\mu = g^{-1}(\eta)\)</span>, so <span class="math inline">\(\mu' = (g^{-1})'\)</span>)</li>
-<li><span class="math inline">\(Var(\mu)\)</span>, the variance for the exponential family as a function of <span class="math inline">\(\mu\)</span></li>
-<li><span class="math inline">\(\phi\)</span>, the dispersion term, which is constant for some expoential families.</li>
+<li><span class="math inline">\partial \mu / \partial X\beta</span>, where <span class="math inline">X \beta</span> is often written as <span class="math inline">\eta</span>, so we need <span class="math inline">\mu'(\eta)</span> (recall <span class="math inline">\mu = g^{-1}(\eta)</span>, so <span class="math inline">\mu' = (g^{-1})'</span>)</li>
+<li><span class="math inline">Var(\mu)</span>, the variance for the exponential family as a function of <span class="math inline">\mu</span></li>
+<li><span class="math inline">\phi</span>, the dispersion term, which is constant for some expoential families.</li>
 </ul></li>
-<li>For the response vector <span class="math inline">\(Z\)</span> we need:
+<li>For the response vector <span class="math inline">Z</span> we need:
 <ul>
-<li><span class="math inline">\(\mu'(\eta)\)</span>, already needed to compute <span class="math inline">\(W\)</span></li>
+<li><span class="math inline">\mu'(\eta)</span>, already needed to compute <span class="math inline">W</span></li>
 </ul></li>
 </ul>
 </section>
@@ -228,10 +242,10 @@ Given a <span class="math inline">\(\beta^{(k)}\)</span> at step <span class="ma
 <h2 class="anchored" data-anchor-id="weighted-least-squares">Weighted Least Squares</h2>
 <p>Since we are going to need WLS for the IRLS procedure, we can implement that first.</p>
 <p>Above we saw that a WLS has the solution:<br>
-<span class="math display">\[\hat{\beta} = ({X}^\top {W} {X})^{-1} {X}^\top {W} Y\]</span> However, note that we can rewrite the weight matrix as <span class="math inline">\(W = \sqrt{W} \sqrt{W}\)</span> because it is positive semidefinite (it is a diagonal matrix and has only positive entries on the diagonal), which just means that it’s valid for us to write the above identity (since <span class="math inline">\(x^\top W x \ge 0 , ~~\forall x \in R\)</span>).</p>
+<span class="math display">\hat{\beta} = ({X}^\top {W} {X})^{-1} {X}^\top {W} Y</span> However, note that we can rewrite the weight matrix as <span class="math inline">W = \sqrt{W} \sqrt{W}</span> because it is positive semidefinite (it is a diagonal matrix and has only positive entries on the diagonal), which just means that it’s valid for us to write the above identity (since <span class="math inline">x^\top W x \ge 0 , ~~\forall x \in R</span>).</p>
 <p>Thus, we can re-write this as:</p>
-<p><span class="math display">\[\hat{\beta} = (\sqrt{W}{X}^\top \sqrt{W}{X})^{-1} \sqrt{W}{X}^\top \sqrt{W} Y\]</span></p>
-<p>Which is the same solution as typical linear regression (<span class="math inline">\(\hat{\beta} = ({X}^\top {X})^{-1} {X}^\top Y\)</span>) where the response variable and design matrix are pre-multiplied by <span class="math inline">\(\sqrt{W}\)</span>.</p>
+<p><span class="math display">\hat{\beta} = (\sqrt{W}{X}^\top \sqrt{W}{X})^{-1} \sqrt{W}{X}^\top \sqrt{W} Y</span></p>
+<p>Which is the same solution as typical linear regression (<span class="math inline">\hat{\beta} = ({X}^\top {X})^{-1} {X}^\top Y</span>) where the response variable and design matrix are pre-multiplied by <span class="math inline">\sqrt{W}</span>.</p>
 <p>(This is mainly useful because it allows us to re-use statistical routines - for example, we could essentially do a <code>lm</code> regression of <code>(sqrt(w) * y) ~ (sqrt(w) * x)</code>)</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>wls <span class="ot">&lt;-</span> <span class="cf">function</span>(y, x, <span class="at">w =</span> <span class="fu">rep_len</span>(1L, <span class="fu">nrow</span>(x))) {</span>
@@ -261,12 +275,12 @@ Given a <span class="math inline">\(\beta^{(k)}\)</span> at step <span class="ma
 <span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Our wls coefs:</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">wls</span>(y, x, w))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Our wls coefs:
- -0.03154247 0.04631383 -0.0182433</code></pre>
+ 0.01575559 0.03585258 -0.0340055</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"stats::lm.wfit coefs:</span><span class="sc">\n</span><span class="st">"</span>, <span class="fu">coef</span>(<span class="fu">lm.wfit</span>(<span class="at">y =</span> y, <span class="at">x =</span> x, <span class="at">w =</span> w)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>stats::lm.wfit coefs:
- -0.03154247 0.04631383 -0.0182433</code></pre>
+ 0.01575559 0.03585258 -0.0340055</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>yw <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(w) <span class="sc">*</span> y</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>xw <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(w) <span class="sc">*</span> x</span>
@@ -274,7 +288,7 @@ Given a <span class="math inline">\(\beta^{(k)}\)</span> at step <span class="ma
 <span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">coef</span>(<span class="fu">lm</span>(yw <span class="sc">~</span> <span class="sc">-</span><span class="dv">1</span> <span class="sc">+</span> xw)), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>stats::lm with y and x pre-multiplied by sqrt(w) coefs:
- -0.03154247 0.04631383 -0.0182433 </code></pre>
+ 0.01575559 0.03585258 -0.0340055 </code></pre>
 </div>
 </div>
 </section>
@@ -283,7 +297,7 @@ Given a <span class="math inline">\(\beta^{(k)}\)</span> at step <span class="ma
 <p>Now we can implement the IRLS algorithm.</p>
 <p>I also added in estimation of the dispersion parameter and variance-covariance matrix (and standard errors). See notes for details.</p>
 <p>The function takes in the data and a “fam” object which is just a bare-bones implementation of <code>stats::family</code> objects. The “fam” object contains the family-specific functions needed in the IRLS steps.</p>
-<p>I also use an initializer function attached to the “fam” instance (<code>fam$init_mu</code>), which uses initialization techniques borrowed from <code>stats::glm</code> and <code>stats::family</code> to get good starting values for <span class="math inline">\(\beta\)</span> (and technically <span class="math inline">\(\mu\)</span>).<br>
+<p>I also use an initializer function attached to the “fam” instance (<code>fam$init_mu</code>), which uses initialization techniques borrowed from <code>stats::glm</code> and <code>stats::family</code> to get good starting values for <span class="math inline">\beta</span> (and technically <span class="math inline">\mu</span>).<br>
 In my experience, it is important to initialize well or the algorithm may not converge.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>fit_glm_irls <span class="ot">&lt;-</span> <span class="cf">function</span>(X, y, fam, <span class="at">tol =</span> <span class="fl">1e-8</span>, <span class="at">maxit =</span> <span class="dv">25</span>) {</span>
@@ -343,20 +357,20 @@ In my experience, it is important to initialize well or the algorithm may not co
 </section>
 <section id="bernoulli-irls" class="level2">
 <h2 class="anchored" data-anchor-id="bernoulli-irls">Bernoulli IRLS</h2>
-<p>Given <span class="math inline">\(\theta = h(X \beta)\)</span>, where <span class="math inline">\(h\)</span> is identity under the canonical link:</p>
-<p>The canonical logit link function <span class="math inline">\(g(\mu)\)</span> is <span class="math inline">\(\log(\frac{\mu}{1 - \mu}) = \theta\)</span>.<br>
+<p>Given <span class="math inline">\theta = h(X \beta)</span>, where <span class="math inline">h</span> is identity under the canonical link:</p>
+<p>The canonical logit link function <span class="math inline">g(\mu)</span> is <span class="math inline">\log(\frac{\mu}{1 - \mu}) = \theta</span>.<br>
 Its inverse is the logistic function:<br>
-<span class="math display">\[
+<span class="math display">
 \mu(\theta) = g^{-1}(\theta) = \frac{1}{1 + \exp(-\theta)}
-\]</span></p>
+</span></p>
 <p>And the derivative of the inverse is:<br>
-<span class="math display">\[
+<span class="math display">
 \mu'(\theta) = \frac{\exp(-\theta)}{(\exp(-\theta) +1)^2}
-\]</span> The variance function of <span class="math inline">\(\mu\)</span> is:<br>
-<span class="math display">\[
+</span> The variance function of <span class="math inline">\mu</span> is:<br>
+<span class="math display">
 Var(\mu) = \mu(1 - \mu)
-\]</span></p>
-<p>For the bernoulli family, <span class="math inline">\(\phi = 1\)</span>.</p>
+</span></p>
+<p>For the bernoulli family, <span class="math inline">\phi = 1</span>.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co"># bernoulli family helpers</span></span>
@@ -408,14 +422,14 @@ Var(\mu) = \mu(1 - \mu)
 <span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>yraw <span class="ot">&lt;-</span> <span class="fu">rbinom</span>(<span class="dv">100</span>, <span class="at">size =</span> <span class="dv">1</span>, <span class="at">prob =</span> p_true)</span>
 <span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>mod_bern <span class="ot">&lt;-</span> <span class="fu">fit_glm_irls</span>(<span class="at">X =</span> xraw, <span class="at">y =</span> yraw, <span class="at">fam =</span> fam)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1/25]: l2 norm = 1.92198441628597
-[2/25]: l2 norm = 1.05066317212018
-[3/25]: l2 norm = 0.833677144318764
-[4/25]: l2 norm = 0.404452319807096
-[5/25]: l2 norm = 0.0690108814735036
-[6/25]: l2 norm = 0.00165953950115446
-[7/25]: l2 norm = 9.35587755507489e-07
-[8/25]: l2 norm = 3.11890242997308e-13</code></pre>
+<pre><code>[1/25]: l2 norm = 1.85074407423157
+[2/25]: l2 norm = 1.07864081253993
+[3/25]: l2 norm = 1.01709543854843
+[4/25]: l2 norm = 0.650835031685672
+[5/25]: l2 norm = 0.179613219885092
+[6/25]: l2 norm = 0.010236735568242
+[7/25]: l2 norm = 3.05627995621674e-05
+[8/25]: l2 norm = 2.71612983003459e-10</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Our IRLS:"</span>,</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"</span><span class="sc">\n</span><span class="st"> coef: "</span>, <span class="fu">coef</span>(mod_bern),</span>
@@ -424,8 +438,8 @@ Var(\mu) = \mu(1 - \mu)
 <span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"</span><span class="sc">\n</span><span class="st">   converged in"</span>, mod_bern<span class="sc">$</span>it, <span class="st">"fisher-scoring/IRLS iterations.</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Our IRLS: 
- coef:  2.789534 3.210772 -0.1901938 
- SEs:   0.6134764 0.7394836 0.3583596 
+ coef:  3.515733 3.042272 -0.9526728 
+ SEs:   0.8164717 0.7512477 0.4750578 
  dispersion:  1 
    converged in 8 fisher-scoring/IRLS iterations.</code></pre>
 </div>
@@ -438,17 +452,17 @@ glm(formula = yraw ~ -1 + xraw, family = binomial(link = "logit"))
 
 Coefficients:
       Estimate Std. Error z value Pr(&gt;|z|)    
-xraw1   2.7895     0.6135   4.547 5.44e-06 ***
-xraw2   3.2108     0.7395   4.342 1.41e-05 ***
-xraw3  -0.1902     0.3584  -0.531    0.596    
+xraw1   3.5157     0.8165   4.306 1.66e-05 ***
+xraw2   3.0423     0.7512   4.050 5.13e-05 ***
+xraw3  -0.9527     0.4751  -2.005   0.0449 *  
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 (Dispersion parameter for binomial family taken to be 1)
 
     Null deviance: 138.629  on 100  degrees of freedom
-Residual deviance:  48.904  on  97  degrees of freedom
-AIC: 54.904
+Residual deviance:  46.609  on  97  degrees of freedom
+AIC: 52.609
 
 Number of Fisher Scoring iterations: 7</code></pre>
 </div>
@@ -570,20 +584,20 @@ Number of Fisher Scoring iterations: 5</code></pre>
 </section>
 <section id="poisson-irls" class="level2">
 <h2 class="anchored" data-anchor-id="poisson-irls">Poisson IRLS</h2>
-<p>Given <span class="math inline">\(\theta = h(X \beta)\)</span>, where <span class="math inline">\(h\)</span> is identity under the canonical link:</p>
-<p>The canonical log link function <span class="math inline">\(g(\mu)\)</span> is <span class="math inline">\(\log(\mu) = \theta\)</span>.<br>
+<p>Given <span class="math inline">\theta = h(X \beta)</span>, where <span class="math inline">h</span> is identity under the canonical link:</p>
+<p>The canonical log link function <span class="math inline">g(\mu)</span> is <span class="math inline">\log(\mu) = \theta</span>.<br>
 Its inverse is:<br>
-<span class="math display">\[
+<span class="math display">
 \mu(\theta) = g^{-1}(\theta) = \exp(\theta)
-\]</span></p>
+</span></p>
 <p>And the derivative of the inverse is:<br>
-<span class="math display">\[
+<span class="math display">
 \mu'(\theta) = \exp(\theta)
-\]</span> And the variance as a function of <span class="math inline">\(\mu\)</span> is just <span class="math inline">\(\mu\)</span>:</p>
-<p><span class="math display">\[
+</span> And the variance as a function of <span class="math inline">\mu</span> is just <span class="math inline">\mu</span>:</p>
+<p><span class="math display">
 Var(\mu) = \exp(\theta) = \mu
-\]</span> (recall <span class="math inline">\(\mu = g^{-1}(\theta)\)</span>). That is, the mean and variance are equal in a Poisson model.</p>
-<p>For the poisson family, <span class="math inline">\(\phi = 1\)</span>.</p>
+</span> (recall <span class="math inline">\mu = g^{-1}(\theta)</span>). That is, the mean and variance are equal in a Poisson model.</p>
+<p>For the poisson family, <span class="math inline">\phi = 1</span>.</p>
 <p>Fairly simple!</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
@@ -633,10 +647,10 @@ Var(\mu) = \exp(\theta) = \mu
 <span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>yraw <span class="ot">&lt;-</span> <span class="fu">rpois</span>(<span class="dv">100</span>, <span class="at">lambda =</span> lambda_true)</span>
 <span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>mod_pois <span class="ot">&lt;-</span> <span class="fu">fit_glm_irls</span>(<span class="at">X =</span> xraw, <span class="at">y =</span> yraw, <span class="at">fam =</span> fam)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1/25]: l2 norm = 4.24101604443062
-[2/25]: l2 norm = 0.00445729999442297
-[3/25]: l2 norm = 4.46245648148178e-06
-[4/25]: l2 norm = 4.71833213926366e-12</code></pre>
+<pre><code>[1/25]: l2 norm = 4.24393964401059
+[2/25]: l2 norm = 0.0102453187741641
+[3/25]: l2 norm = 2.52296581795521e-05
+[4/25]: l2 norm = 1.74564491912803e-10</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Our IRLS:"</span>,</span>
 <span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"</span><span class="sc">\n</span><span class="st"> coef: "</span>, <span class="fu">coef</span>(mod_pois),</span>
@@ -645,8 +659,8 @@ Var(\mu) = \exp(\theta) = \mu
 <span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"</span><span class="sc">\n</span><span class="st">   converged in"</span>, mod_pois<span class="sc">$</span>it, <span class="st">"fisher-scoring/IRLS iterations.</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Our IRLS: 
- coef:  2.992908 3.002275 0.001082824 
- SEs:   0.01042142 0.004174128 0.002516461 
+ coef:  2.991448 3.005301 -0.002175336 
+ SEs:   0.01385462 0.006640003 0.005541855 
  dispersion:  1 
    converged in 4 fisher-scoring/IRLS iterations.</code></pre>
 </div>
@@ -658,20 +672,20 @@ Call:
 glm(formula = yraw ~ -1 + xraw, family = poisson(link = "log"))
 
 Coefficients:
-      Estimate Std. Error z value Pr(&gt;|z|)    
-xraw1 2.992908   0.010421  287.19   &lt;2e-16 ***
-xraw2 3.002275   0.004174  719.26   &lt;2e-16 ***
-xraw3 0.001083   0.002516    0.43    0.667    
+       Estimate Std. Error z value Pr(&gt;|z|)    
+xraw1  2.991448   0.013855 215.917   &lt;2e-16 ***
+xraw2  3.005301   0.006640 452.605   &lt;2e-16 ***
+xraw3 -0.002175   0.005542  -0.393    0.695    
 ---
 Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 (Dispersion parameter for poisson family taken to be 1)
 
-    Null deviance: 4648175.22  on 100  degrees of freedom
-Residual deviance:      85.24  on  97  degrees of freedom
-AIC: 631.53
+    Null deviance: 1603202.82  on 100  degrees of freedom
+Residual deviance:     112.02  on  97  degrees of freedom
+AIC: 611.7
 
-Number of Fisher Scoring iterations: 3</code></pre>
+Number of Fisher Scoring iterations: 4</code></pre>
 </div>
 </div>
 <section id="example-with-data-poisson-glm-with-the-seatbelts-dataset" class="level3">
@@ -776,6 +790,11 @@ Number of Fisher Scoring iterations: 4</code></pre>
 </div>
 </div>
 </section>
+</section>
+<section id="todo" class="level1">
+<h1>TODO:</h1>
+<p>Deviance</p>
+<p>proper prediction function with se.fit for CI bounds</p>
 </section>
 
 </main>

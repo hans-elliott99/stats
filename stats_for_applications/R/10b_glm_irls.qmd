@@ -1,39 +1,54 @@
 ---
 title: "Generalised Linear Models"
 author: Hans Elliott
-format: html
+format:
+  html:
+    html-math-method: katex
+editor: 
+  markdown: 
+    wrap: 72
 ---
 
-In the previous GLM examples we derived log-likelihood functions in terms of $\beta$ for the desired exponential family distributions, and then manually optimized the log-likelihood using R's `stats::optim` function.  
-`optim` uses several possible general-purpose optimization methods to optimize an input function. While this works, it's not how GLMs are typically fit.
+In the previous GLM examples we derived log-likelihood functions in
+terms of $\beta$ for the desired exponential family distributions, and
+then manually optimized the log-likelihood using R's `stats::optim`
+function.\
+`optim` uses several possible general-purpose optimization methods to
+optimize an input function. While this works, it's not how GLMs are
+typically fit.
 
-In practice GLMs are fit using Iteratively Re-Weighted Least Squares, which is a convenient way to perform Netwon-Raphson or Fisher-scoring updating by reformulating the update procedure as a weighted least squares problem (see lecture notes 10b). 
-
+In practice GLMs are fit using Iteratively Re-Weighted Least Squares,
+which is a convenient way to perform Netwon-Raphson or Fisher-scoring
+updating by reformulating the update procedure as a weighted least
+squares problem (see lecture notes 10b).
 
 ## Newton-Raphson / Fisher-Scoring Optimization Method
 
+The Newton-Raphson optimization method updates the parameter estimate
+iteratively, maximizing the log likelihood by performing a modified
+gradient ascent. At each iteration $k$ we compute
+$\beta^{(k + 1)} = \beta^{(k)} + [-H_{l_n}(\beta^{(k)})]^{-1} \nabla_{l_n}(\beta^{(k)})$
 
+$l_n$ is the log-likelihood as a function of $\beta$, $\nabla$ is the
+gradient of the log-likelihood, and $H$ is the Hessian.
 
-The Newton-Raphson optimization method updates the parameter estimate iteratively, maximizing the log likelihood by performing a modified gradient ascent. At each iteration $k$ we compute $\beta^{(k + 1)} = \beta^{(k)} + [-H_{l_n}(\beta^{(k)})]^{-1}  \nabla_{l_n}(\beta^{(k)})$
-
-$l_n$ is the log-likelihood as a function of $\beta$, $\nabla$ is the gradient of the log-likelihood, and $H$ is the Hessian.  
-
-The Fisher-scoring method replaces the $-H_{l_n}(\beta^{(k)})^{-1}$ term with the (inverse of the) Fisher information matrix, $I(\beta^{(k)})^{-1}$, since it can sometimes be more convenient to compute.  
-At each iteration $k$ we compute $\beta^{(k + 1)} = \beta^{(k)} + I(\beta^{(k)})^{-1}  \nabla_{l_n}(\beta^{(k)})$
-
-
+The Fisher-scoring method replaces the $-H_{l_n}(\beta^{(k)})^{-1}$ term
+with the (inverse of the) Fisher information matrix,
+$I(\beta^{(k)})^{-1}$, since it can sometimes be more convenient to
+compute.\
+At each iteration $k$ we compute
+$\beta^{(k + 1)} = \beta^{(k)} + I(\beta^{(k)})^{-1} \nabla_{l_n}(\beta^{(k)})$
 
 ### Example: Bernoulli
 
-For the Bernoulli family, we can derive (see lecture notes):  
+For the Bernoulli family, we can derive (see lecture notes):
 
-- $\nabla(\beta) = X^\top (\frac{e^{X \beta}}{1 + e^{X \beta}} - Y)$  
+-   $\nabla(\beta) = X^\top (\frac{e^{X \beta}}{1 + e^{X \beta}} - Y)$
 
-- $-H(\beta) = I(\beta) = - X^\top diag(\frac{e^{X \beta}}{(1 + e^{X \beta})^2}) X$
-  - (the Hessian and Fisher-information matrix are essentially equivalent)
+-   $-H(\beta) = I(\beta) = - X^\top diag(\frac{e^{X \beta}}{(1 + e^{X \beta})^2}) X$
 
-
-
+    -   (the Hessian and Fisher-information matrix are essentially
+        equivalent)
 
 ```{r}
 ###
@@ -80,73 +95,92 @@ cat("stats::glm coefficients:\n", coef(fitglm), "\n")
 
 ## Iteratively Reweighted Least Squares
 
-Using the particular functional form of distributions in the exponential family, we are able to rewrite the Fisher-scoring method as a weighted least squares problem (derivation in notes).  
+Using the particular functional form of distributions in the exponential
+family, we are able to rewrite the Fisher-scoring method as a weighted
+least squares problem (derivation in notes).
 
-The IRLS update procedure used to obtain the $k + 1$-th iteration's coefficient can be written as:  
+The IRLS update procedure used to obtain the $k + 1$-th iteration's
+coefficient can be written as:
 
 $$\beta^{(k + 1)} = ({X}^\top {W} {X})^{-1} {X}^\top {W}(\tilde{{Y}} - \tilde{\mu} + X\beta^{(k)})$$
-where:  
+where:
 
-- $W = diag(\frac{h'(X_i^\top \beta)}{g'(\mu_i)\phi})$
-- $\tilde{Y}_i = Y_i ~ g'(\mu_i)$ and $\tilde{\mu}_i = \mu_i ~ g'(\mu_i)$
-- $g$ is the link function, such that $\mu_i = g^{-1}(X^\top \beta)$
-- $h = (b')^{-1} \circ g^{-1}$, given the cumulant generating function $b$ ($h$ is identity under the canonical link).
+-   $W = diag(\frac{h'(X_i^\top \beta)}{g'(\mu_i)\phi})$
+-   $\tilde{Y}_i = Y_i ~ g'(\mu_i)$ and
+    $\tilde{\mu}_i = \mu_i ~ g'(\mu_i)$
+-   $g$ is the link function, such that $\mu_i = g^{-1}(X^\top \beta)$
+-   $h = (b')^{-1} \circ g^{-1}$, given the cumulant generating function
+    $b$ ($h$ is identity under the canonical link).
 
-
-A **Weighed Least Squares** problem is concerned with deriving the maximum likelihood estimator by solving: $\min_\beta (Y - {X}\beta)^\top {W} (Y - {X}\beta)$, which has a closed-form solution:
-$$
+A **Weighed Least Squares** problem is concerned with deriving the
+maximum likelihood estimator by solving:
+$\min_\beta (Y - {X}\beta)^\top {W} (Y - {X}\beta)$, which has a
+closed-form solution: $$
 \hat{\beta} = ({X}^\top {W} {X})^{-1} {X}^\top {W} Y
 $$
 
+This matches the update procedure formula above when:
 
-This matches the update procedure formula above when:  
+1.  $W = W(\beta^{(k)})$ is the weight matrix
+2.  $Y = \tilde{{Y}} - \tilde{\mu} + {X}\beta^{(k)}$ is the response
+    (below called $Z$)
 
-1. $W = W(\beta^{(k)})$ is the weight matrix
-2. $Y = \tilde{{Y}} - \tilde{\mu} + {X}\beta^{(k)}$ is the response (below called $Z$)
-
-
-We can also reformulate the working weight matrix and working response vector to utilize more common functions (see notes for math).  
+We can also reformulate the working weight matrix and working response
+vector to utilize more common functions (see notes for math).
 
 $${W}^{(k)}= diag \frac{\mu'(X\beta)^2}{Var(\mu) \phi}$$
 $$Z_i^{(k)} = X\beta + \frac{(Y_i - \mu_i^{(k)})}{\mu'(X\beta)}$$
 
-**Algorithm**:  
-Given a $\beta^{(k)}$ at step $k$, we can obtain $\beta^{(k+1)}$ by the following:  
+**Algorithm**:\
+Given a $\beta^{(k)}$ at step $k$, we can obtain $\beta^{(k+1)}$ by the
+following:\
 1. Fix $\beta^{(k)}$ and set:
-$$\mu_i^{(k)} = g^{-1}(X_i^\top \beta^{(k)})$$
-2. Calculate the adjusted dependent responses $Z_i^{(k)}$  
-3. Compute the weights ${W}^{(k)} = {W}(\beta^{(k)})$  
-4. Regress (i.e., WLS) ${Z}^{(k)}$ on the design matrix ${X}$ with weight ${W}^{(k)}$ to derive a new estimate:  
+$$\mu_i^{(k)} = g^{-1}(X_i^\top \beta^{(k)})$$ 2. Calculate the adjusted
+dependent responses $Z_i^{(k)}$\
+3. Compute the weights ${W}^{(k)} = {W}(\beta^{(k)})$\
+4. Regress (i.e., WLS) ${Z}^{(k)}$ on the design matrix ${X}$ with
+weight ${W}^{(k)}$ to derive a new estimate:\
 $$\beta^{(k + 1)} = ({X}^\top {W}^{(k)} {X})^{-1} {X}^\top {W^{(k)}} Z^{(k)}$$
 5. Repeat until convergence.
 
+For this procedure we need:
 
-For this procedure we need:  
-
-- ${X}$ and ${Y}$ (the data) and initial values of $\beta$
-- For the weight matrix we need:
-  - $\partial \mu / \partial X\beta$, where $X \beta$ is often written as $\eta$, so we need $\mu'(\eta)$ (recall $\mu = g^{-1}(\eta)$, so $\mu' = (g^{-1})'$)
-  - $Var(\mu)$, the variance for the exponential family as a function of $\mu$
-  - $\phi$, the dispersion term, which is constant for some expoential families.
-- For the response vector $Z$ we need:
-  - $\mu'(\eta)$, already needed to compute $W$
-
+-   ${X}$ and ${Y}$ (the data) and initial values of $\beta$
+-   For the weight matrix we need:
+    -   $\partial \mu / \partial X\beta$, where $X \beta$ is often
+        written as $\eta$, so we need $\mu'(\eta)$ (recall
+        $\mu = g^{-1}(\eta)$, so $\mu' = (g^{-1})'$)
+    -   $Var(\mu)$, the variance for the exponential family as a
+        function of $\mu$
+    -   $\phi$, the dispersion term, which is constant for some
+        expoential families.
+-   For the response vector $Z$ we need:
+    -   $\mu'(\eta)$, already needed to compute $W$
 
 ## Weighted Least Squares
 
-Since we are going to need WLS for the IRLS procedure, we can implement that first.  
+Since we are going to need WLS for the IRLS procedure, we can implement
+that first.
 
-Above we saw that a WLS has the solution:  
-$$\hat{\beta} = ({X}^\top {W} {X})^{-1} {X}^\top {W} Y$$
-However, note that we can rewrite the weight matrix as $W = \sqrt{W} \sqrt{W}$ because it is positive semidefinite (it is a diagonal matrix and has only positive entries on the diagonal), which just means that it's valid for us to write the above identity (since $x^\top W x \ge 0 , ~~\forall x \in R$).   
+Above we saw that a WLS has the solution:\
+$$\hat{\beta} = ({X}^\top {W} {X})^{-1} {X}^\top {W} Y$$ However, note
+that we can rewrite the weight matrix as $W = \sqrt{W} \sqrt{W}$ because
+it is positive semidefinite (it is a diagonal matrix and has only
+positive entries on the diagonal), which just means that it's valid for
+us to write the above identity (since
+$x^\top W x \ge 0 , ~~\forall x \in R$).
 
-Thus, we can re-write this as:  
+Thus, we can re-write this as:
 
 $$\hat{\beta} = (\sqrt{W}{X}^\top \sqrt{W}{X})^{-1} \sqrt{W}{X}^\top \sqrt{W} Y$$
 
-Which is the same solution as typical linear regression ($\hat{\beta} = ({X}^\top {X})^{-1} {X}^\top Y$) where the response variable and design matrix are pre-multiplied by $\sqrt{W}$.  
+Which is the same solution as typical linear regression
+($\hat{\beta} = ({X}^\top {X})^{-1} {X}^\top Y$) where the response
+variable and design matrix are pre-multiplied by $\sqrt{W}$.
 
-(This is mainly useful because it allows us to re-use statistical routines - for example, we could essentially do a `lm` regression of `(sqrt(w) * y) ~ (sqrt(w) * x)`)
+(This is mainly useful because it allows us to re-use statistical
+routines - for example, we could essentially do a `lm` regression of
+`(sqrt(w) * y) ~ (sqrt(w) * x)`)
 
 ```{r}
 wls <- function(y, x, w = rep_len(1L, nrow(x))) {
@@ -187,12 +221,19 @@ cat("stats::lm with y and x pre-multiplied by sqrt(w) coefs:\n",
 
 Now we can implement the IRLS algorithm.
 
-I also added in estimation of the dispersion parameter and variance-covariance matrix (and standard errors). See notes for details. 
+I also added in estimation of the dispersion parameter and
+variance-covariance matrix (and standard errors). See notes for details.
 
-The function takes in the data and a "fam" object which is just a bare-bones implementation of `stats::family` objects. The "fam" object contains the family-specific functions needed in the IRLS steps.
+The function takes in the data and a "fam" object which is just a
+bare-bones implementation of `stats::family` objects. The "fam" object
+contains the family-specific functions needed in the IRLS steps.
 
-I also use an initializer function attached to the "fam" instance (`fam$init_mu`), which uses initialization techniques borrowed from `stats::glm` and `stats::family` to get good starting values for $\beta$ (and technically $\mu$).  
-In my experience, it is important to initialize well or the algorithm may not converge. 
+I also use an initializer function attached to the "fam" instance
+(`fam$init_mu`), which uses initialization techniques borrowed from
+`stats::glm` and `stats::family` to get good starting values for $\beta$
+(and technically $\mu$).\
+In my experience, it is important to initialize well or the algorithm
+may not converge.
 
 ```{r}
 fit_glm_irls <- function(X, y, fam, tol = 1e-8, maxit = 25) {
@@ -251,28 +292,27 @@ fit_glm_irls <- function(X, y, fam, tol = 1e-8, maxit = 25) {
 
 ```
 
-
 ## Bernoulli IRLS
 
-Given $\theta = h(X \beta)$, where $h$ is identity under the canonical link:  
+Given $\theta = h(X \beta)$, where $h$ is identity under the canonical
+link:
 
-The canonical logit link function $g(\mu)$ is $\log(\frac{\mu}{1 - \mu}) = \theta$.  
-Its inverse is the logistic function:  
+The canonical logit link function $g(\mu)$ is
+$\log(\frac{\mu}{1 - \mu}) = \theta$.\
+Its inverse is the logistic function:\
 $$
 \mu(\theta) = g^{-1}(\theta) = \frac{1}{1 + \exp(-\theta)}
 $$
 
-And the derivative of the inverse is:  
+And the derivative of the inverse is:\
 $$
 \mu'(\theta) = \frac{\exp(-\theta)}{(\exp(-\theta) +1)^2}
-$$
-The variance function of $\mu$ is:  
+$$ The variance function of $\mu$ is:\
 $$
 Var(\mu) = \mu(1 - \mu)
 $$
 
-
-For the bernoulli family, $\phi = 1$. 
+For the bernoulli family, $\phi = 1$.
 
 ```{r}
 #
@@ -318,7 +358,6 @@ init_bernoulli <- function(link = c("logit")) {
 }
 ```
 
-
 ```{r}
 # SIM DATA
 fam <- init_bernoulli()
@@ -337,21 +376,20 @@ fitglm <- glm(yraw ~ -1 + xraw, family = binomial(link = "logit"))
 summary(fitglm)
 ```
 
-
-
 ### Example with Data: Bernoulli (logistic regression) on the kyphosis dataset
 
-**DATA**:  
+**DATA**:
 
-The kyphosis dataset represents data on children who have had corrective spinal surgery.  
+The kyphosis dataset represents data on children who have had corrective
+spinal surgery.
 
 Variables:
 
-- kyphosis: indicates if kyphosis, a type of deformation, is present after the operation  
-- age: age of patient in months  
-- number: the number of vertebrae involved  
-- start: the number of the first (topmost) vertebra operated on  
-
+-   kyphosis: indicates if kyphosis, a type of deformation, is present
+    after the operation\
+-   age: age of patient in months\
+-   number: the number of vertebrae involved\
+-   start: the number of the first (topmost) vertebra operated on
 
 ```{r}
 kyphosis <- read.csv("https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/master/csv/rpart/kyphosis.csv")
@@ -408,34 +446,28 @@ plot(testage$age, testage$pred,
      )
 ```
 
-
-
-
-
-
 ## Poisson IRLS
 
-Given $\theta = h(X \beta)$, where $h$ is identity under the canonical link:  
+Given $\theta = h(X \beta)$, where $h$ is identity under the canonical
+link:
 
-The canonical log link function $g(\mu)$ is $\log(\mu) = \theta$.  
-Its inverse is:  
+The canonical log link function $g(\mu)$ is $\log(\mu) = \theta$.\
+Its inverse is:\
 $$
 \mu(\theta) = g^{-1}(\theta) = \exp(\theta)
 $$
 
-
-And the derivative of the inverse is:  
+And the derivative of the inverse is:\
 $$
 \mu'(\theta) = \exp(\theta)
-$$
-And the variance as a function of $\mu$ is just $\mu$:
+$$ And the variance as a function of $\mu$ is just $\mu$:
 
 $$
 Var(\mu) = \exp(\theta) = \mu
-$$
-(recall $\mu = g^{-1}(\theta)$). That is, the mean and variance are equal in a Poisson model.  
+$$ (recall $\mu = g^{-1}(\theta)$). That is, the mean and variance are
+equal in a Poisson model.
 
-For the poisson family, $\phi = 1$. 
+For the poisson family, $\phi = 1$.
 
 Fairly simple!
 
@@ -498,20 +530,18 @@ fitglm <- glm(yraw ~ -1 + xraw, family = poisson(link = "log"))
 summary(fitglm)
 ```
 
-
-
 ### Example with Data: Poisson GLM with the Seatbelts dataset
 
-**DATA**:  
+**DATA**:
 
-The `Seatbelts` dataset contains information collected on monthly totals of car accidents in Great Britain from 1969 to 1984.  
+The `Seatbelts` dataset contains information collected on monthly totals
+of car accidents in Great Britain from 1969 to 1984.
 
-Variables:  
+Variables:
 
-- DriversKilled: count of drivers killed  
-- kms: distance driven  
-- PetrolPrice: petrol price  
-
+-   DriversKilled: count of drivers killed\
+-   kms: distance driven\
+-   PetrolPrice: petrol price
 
 ```{r}
 seatbelts <- data.frame(Seatbelts)
@@ -560,11 +590,8 @@ plot(testpetrol$PetrolPrice, testpetrol$pred,
 
 ```
 
-
-
-
 # TODO:
-Deviance  
+
+Deviance
 
 proper prediction function with se.fit for CI bounds
-
