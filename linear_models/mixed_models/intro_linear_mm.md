@@ -7,3 +7,5 @@ I like Shravan Vasishth's lectures on linear mixed models ([part 1](https://www.
 
 https://stats.stackexchange.com/questions/4700/what-is-the-difference-between-fixed-effect-random-effect-in-mixed-effect-model
 
+https://stats.stackexchange.com/questions/4700/what-is-the-difference-between-fixed-effect-random-effect-in-mixed-effect-model#:~:text=Econometric%20perspective
+

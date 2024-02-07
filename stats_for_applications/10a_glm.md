@@ -1,6 +1,9 @@
 
 # Generalized Linear Models
 
+- [Original paper by Nelder and Wedderburn, 1972](https://www.medicine.mcgill.ca/epidemiology/hanley/bios601/Likelihood/NelderWedderburn1972.pdf)  
+- [Book by Nelder and McCullagh, 1989](https://www.utstat.toronto.edu/~brunner/oldclass/2201s11/readings/glmbook.pdf)
+
 Recall we defined a linear model as modeling the relationship between a random variable $Y$ and a vector of random variables $X$ as $Y = X^\top \beta + \varepsilon$.  
 Typically we said $\varepsilon \sim N_n(0, \sigma^2 I_n)$, in which case we can rewrite this as:  
 
@@ -43,6 +46,11 @@ where $g$ is called the link function and $\mu = E[Y|X]$
     $\mu(X)$ is *always* $E[Y|X]$. But, for example, if $Y \sim Bernoulli$, then $\mu(X)$ is bound between $[0,1]$. We can't just let $\mu(X) = X^\top \beta$, we need a link function $g$ which maps the $\mu$ parameter from $[0,1]$ to the entire real line (said differently, we need $g^{-1}$ to map $X^\top \beta$ from the entire real line to $[0,1]$) 
     - Note, in the linear regression case, $g$ is the identity function.
 
+Note that $g$ does not have to be a linear function of $\mu$, and thus $\mu = g^{-1}(X^\top \beta)$ implies $\mu$ could be a nonlinear function of its linear predictor.  
+However, the model is still considered "linear" because $g(\mu)$ is a linear function of the covariates - the covariates $X$ only affect the distribution of $Y$ through the linear combination $X^\top \beta$.  
+
+This implies that we cannot simply use least squares to estimate $\beta$, and we will see that instead we will rely on maximum likelihood estimation explicitly.
+
 
 ## Example 1: Disease Occurring Rate
 
@@ -76,8 +84,8 @@ The Kyphosis data consist of measurements on 81 children following corrective sp
 A family of distributions $\set{P_\theta : \theta \in \Theta}, \Theta \subset \R^k$ is said to be a **$k$-paramater exponential family** on $\R^q$ if there exist real valued functions:  
 - $\eta_1, \eta_2, \cdots, \eta_k$ and $B$ of $\theta$
 - $T_1,T_2,\cdots,T_k$ and $h$ of $x \in \R^q$ such that the density function (pmf or pdf) of $P_\theta$ can be written as:  
-$p_\theta(x) = p(\theta, x) = \exp[\Sigma_{i=1}^k ~~ \eta_i(\theta) T_i(x) - B(\theta)] ~ h(x)$
-    - (note, in modeling situations, the $x$ is going to be the response variable, i.e., $y \in \R^1$)
+$$p_\theta(x) = p(\theta, x) = \exp[\Sigma_{i=1}^k ~~ \eta_i(\theta) T_i(x) - B(\theta)] ~ h(x)$$
+ - (note, in modeling situations, the $x$ is going to be the response variable, i.e., $y \in \R^1$)
 
 Let's break this down:  
 - There are many possible functions $p(\theta, x)$ - many ways $\theta$ and $x$ can be interacted. **The exponential family's form restricts the way $\theta$ and $x$ can interact.**  
@@ -164,7 +172,7 @@ $$
 It will be nice to have a distribution that includes just $x$ times $\theta$, instead of these functions of them.   
 These distributions are known as the canonical exponential family, which are the subset of the full exponential family where $x, \theta \in \R^1$.
 
-**Canonical exponential family** for $k=1$ ($\theta \in \R$), $y \in \R$:  
+**Canonical exponential family** for $k=1$ ($\theta \in \R$), $y \in \R$ has probability density/mass function of the form:  
 $$
 f_\theta(y) = \exp(~~ \frac{y \theta - b(\theta)}{\phi} + c(y, \phi) ~~)
 $$  
@@ -197,7 +205,9 @@ What really makes the difference between the different members of the canonical 
 ## Canonical Exponential: Likelihood, Expectation, Variance
 > For the canonical exponential family, once we solve for $b(\theta)$, a simple computation using $b$ produces the mean and variance. The mean and variance are also known as moments, and cumulants are directly related to moments. $b$ is the cumulant generating function, so calculating $b$ gets us close - in fact the first cumulant *is* the mean and the second *is* the variance.
 
-### Log likelihood identities
+### Log likelihood (Bartlett's) identities
+(Also see ["Variance function" on wikipedia](https://en.wikipedia.org/wiki/Variance_function))
+
 Let $l(\theta) = \log f_\theta(y)$ denote the log-likelihood function.  
 The mean $E(y)$ and variance $V(y)$ can be derived from **the following 2 identities**:  
 1. $E(\frac{\partial }{\partial \theta} l(\theta)) = 0$.  
@@ -232,7 +242,7 @@ is the **Fisher information** - expectation of the second derivative of the log 
 ### Expected Value
 Note that:  
 - $\log f_\theta(y) = \frac{y \theta - b(\theta)}{\phi} + c(y, \phi)$  
-    - (logging just gets rid of the exponential)  
+    - (logging just gets rid of the exponential)
 
 Therefore:  
 - $\frac{\partial }{\partial \theta} \log f_\theta(y) = \frac{y - b'(\theta)}{\phi}$  

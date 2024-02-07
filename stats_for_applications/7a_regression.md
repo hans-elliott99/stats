@@ -439,6 +439,8 @@ $\frac{\hat{\beta}_j}{\hat{\sigma}\sqrt{\gamma_j}} \sim t_{n-p}$
 $\psi =  \indicator \set{|\frac{\hat{\beta}_j}{\hat{\sigma} \sqrt{\gamma_j}}| > q_{\alpha/2}}$, where $q_{\alpha/2}$ is the $(1-\alpha/2)$-quantile of $t_{(n-p)}$
     - note that this is virtually the same as the case when $\sigma^2$ is known, but now using the $t$ distribution instead of standard normal means the pivotal will have heavier tails. Also note that, since we use $n-p$ degrees of freedom, this implies that (for a fixed $n$), increasing $p$ leads to heavier tails, reflecting the fact that it gets harder to estimate the variance when there are a lot of parameters.
 
+Note that $\hat{\sigma} \sqrt{\gamma_j}$ is equivalent to the standard error for the $j$-the coefficient (see below for standard errors).
+
 
 A problem arises here if we want to test many of our explanatory variables for significance.  
 The probability that you make a mistake in your test (a type 1 error, rejecting the null falsely) is set to $\alpha$ - say, 5%.  
@@ -560,6 +562,7 @@ Regression exhibits correlation not causation!
 - causation is not a statistical thing, it's a logical argument added as another layer on top of statistics 
 
 
+## Standard Errors
 Standard Errors are commonly reported in regression results.  
 The standard error for $\hat{\beta}_j$ is the square root of the $j$-th diagonal of the (empirical) covariance matrix for $\hat{\beta}$. Recall the covariance matrix for $\hat{\beta}$ is $\sigma^2 (\bold{X}^\top \bold{X})^{-1}$.  
 Of course, we use the estimated $\hat{\sigma}^2$.  
@@ -576,6 +579,7 @@ It is, thus, interpreted as an estimate of the variation in the estimate $\hat{\
     $= \sigma^2 (\bold{X}^\top \bold{X})^{-1}$
     - This lines up with what we've seen earlier: the "sampling distribution" of the $\hat{\beta}$ is $\hat{\beta} \sim N_n(\beta, \sigma^2(\bold{X}^\top \bold{X})^{-1})$
     - And in empirical settings we can use $\hat{\sigma}^2$ instead (see above for derivation) 
+        - Recall $\hat{\sigma}^2 = \frac{1}{n-p} ||Y - \bold{X}\hat{\beta}||^2_2$, i.e., SSR/(n - p)  
     - The "standard error" is parallel to the standard deviation of a $\hat{\beta}_j$, so to get them we just take the square root of the diagonal elements of the variance-covariance matrix.
 
 

@@ -163,10 +163,11 @@ ggplot() +
   geom_point(aes(x = X[, 2], y = Y), alpha = 0.10)
 
 # beta - right answer, courtesy of R
-(m0 <- lm(Y ~ X[,2]))
+m0 <- lm(Y ~ X[,2])
+summary(m0)$coef[, "Estimate"]
 
 # by hand:
-(beta_hat <- solve(t(X) %*% X) %*% t(X) %*% Y)
+as.vector(beta_hat <- solve(t(X) %*% X) %*% t(X) %*% Y)
 Y_hat <- X %*% beta_hat
 
 # by the way, we can compute an unbiased estimator of sigma^2 (which is == 4)
@@ -175,9 +176,11 @@ Y_hat <- X %*% beta_hat
 # the dimension of the parameter vector.
 p <- ncol(X)
 (s2_hat <- sum((Y - Y_hat)^2) / (n - p))
+summary(m0)$sigma^2
 
-# and yes, this is equal to the empirical variance of the residuals
+# and yes, this is ~ equal to the empirical variance of the residuals
 var(Y - Y_hat)
+
 
 # we can also check the following relationship:
 # E[ ||Y - X * beta ||^2 ] = sigma^2 * (n - p)
@@ -185,6 +188,27 @@ var(Y - Y_hat)
 # (which is why the variance estimator is prediction-error/(n - p))
 (sum((Y - Y_hat)^2))
 (s2 * (n - p))
+
+
+# Standard Errors:
+## compute covariance matrix:
+## i.e., empirical variance * inverse of (X^T X)
+(covmat <- s2_hat * solve(t(X) %*% X))
+unname(vcov(m0))
+
+## compute SEs
+(se <- sqrt(diag(covmat)))
+unname(summary(m0)$coef[, "Std. Error"])
+
+## compute T test statistic
+## H0: beta_j = 0, H1: beta_j != 0
+as.vector(Tn <- beta_hat / se)
+unname(summary(m0)$coef[, "t value"])
+
+## and p-vals
+as.vector(2 * (1 - pt(Tn, df = n - p)))
+unname(summary(m0)$coef[, "Pr(>|t|)"])
+
 
 simY <- function(n) {
   r <- replicate(1000,
@@ -226,7 +250,7 @@ j <- 2 # test the second coordinate of beta, not the intercept
 
 ## test at the 5% level
 (q_alpha <- qt(1 - 0.05/2, df = n - p))
-(reject_null <- T_n > q_alpha)
+(reject_null <- abs(T_n) > q_alpha)
 
 ## calculate p-value
 ## (less than .Machine$double.eps, prob. of more extreme T_n is very low)
