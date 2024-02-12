@@ -1,8 +1,9 @@
 local
-*.R*
 *.o
 *.so
+.Rproj
 .Rproj.user
+.Rhistory
 
 # latex
 *.aux
@@ -10,4 +11,3 @@ local
 *.fls
 *.log
 *.synctex.gz
-*.pdf
