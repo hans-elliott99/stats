@@ -1,0 +1,21 @@
+find . -type d \
+    -not -path "./.git/*" \
+    -not -path "./.git" \
+    -not -path "./local/*" \
+    -not -path "./local" \
+    -not -path "./.Rproj.user/*" \
+    -print -exec sh -c 'tree "$0" \
+    -H "." \
+    -L 1 \
+    --noreport \
+    --dirsfirst \
+    --charset utf-8 \
+    --ignore-case \
+    --timefmt "%d-%b-%Y %H:%M" \
+    -I "index.html|local" \
+    -T "Some Stats Notes" \
+    -s \
+    -D \
+    -P "*.html|*.md|*.R" \
+    -o "$0/index.html"' {} \;
+

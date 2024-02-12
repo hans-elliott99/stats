@@ -1,0 +1,96 @@
+---
+title: "Linear Regression and QR Decomposition"
+author: "Hans Elliott"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+Notes based on McCullagh and Nelder, 1983, section 3.8.2 and [Interactive Linear Algebra](https://textbooks.math.gatech.edu/ila/orthogonal-sets.html)
+
+
+Recall that least squares problems have a closed form solution:  
+$\hat{\beta} = (X^\top X)^{-1} X^\top Y$  
+as long as $X^\top X$ is invertible.  
+
+In practice, stats software does not typically compute coefficients using this formula. Instead, a variety of algorithms exist which can make the computation more efficient and numerically stable.  
+
+
+First, consider that the *condition number* of a matrix is a measure of closeness to singularity. Recall, a singular matrix is non-invertible. Large values of the condition number can lead to numeric instability from rounding errors. Since $X^\top X$ has a condition number that is the square of the condition number of $X$, it is useful to avoid using/having to invert $X^\top X$.  
+
+The most popular method for performing least squares, and that used by R, is called QR factorization or decomposition.  
+
+
+The aim is to decompose $X \in n \times p$ into the product of 2 matrices: the $n \times n$ orthogonal matrix $Q$ and the $n \times p$ upper right triangle matrix $R$, where $R_1$ will denote the upper right triangle of $R$.  
+
+We can motivate the procedure statistically:  
+If $y$ is the outcome vector with mean $X \beta$ and variance $\sigma^2 I$, we can make an orthogonal transformation to new variables $u$ defined by $u = Q^\top y$. Then, the new mean and variance are:  
+
+- $E[U] = Q^\top E[Y] = Q^\top X\beta = Q^\top Q R \beta = R\beta = R_1 \beta$  
+  - Since the last $n - p$ components of $U$ have 0 expectation (due to $R$ being an upper right triangle matrix), they give no information about $\beta$.  
+  - Thus, we just need to estimate the first $p$ components of $u$.
+- $cov[U] = \sigma^2 Q^\top I Q = \sigma^2 I$  
+
+Thus, $R_1 \hat{\beta} = u_1$, which is easily solved because there is a simple inversion algorithm for triangular matrices (more on that later).  
+
+So far we can see that we need $Q$, to compute $u = Q^\top y$, and we need $R$ to compute $R_1 \hat{\beta} = u_1$.  
+
+Technically, it is not necessary to compute $Q$ explicitly because if $y$ is appended to $X$ (so the matrix has form $\{X : y\}$) the sequence of operations that takes $X$ to $R$ also transforms $\{X : y\}$ to $\{R : u\}$.  
+This means the first $p$ rows of the augmented matrix $\{R : u\}$ can be used to get the coefficients.  
+
+There are a few methods of finding $Q$ and $R$, but the preferred is the Gram-Schmidt method, which orthogonalizes the columns of the design matrix $X$.  
+
+
+https://textbooks.math.gatech.edu/ila/orthogonal-sets.html  
+
+https://genomicsclass.github.io/book/pages/qr_and_regression.html
+
+
+
+```{r}
+x <- cbind(1, rnorm(100), rnorm(100))
+y <- x[,1] + 2 * x[,2] + 3 * x[, 3] + rnorm(100, sd = 0.25)
+A <- cbind(x)
+
+# Gram-Schmidt the design matrix
+m <- nrow(A)
+n <- ncol(A)
+Q <- matrix(0, nrow = m, ncol = n)
+R <- matrix(0, nrow = n, ncol = n)
+for (j in 1:n) {
+  A_j <- A[, j, drop = FALSE]
+  v <- A_j
+  if (j > 1) {
+    for(i in 1:(j-1)) {
+            R[i, j] <- t(Q[,i,drop = FALSE]) %*% A_j
+            v <- v - R[i, j] * Q[ ,i]
+    }
+  }
+  R[j, j] = sqrt(crossprod(v)) # i.e., norm(v, type = "2")
+  Q[ , j] = v / R[j, j]
+}
+
+
+# create u and solve for beta
+## u = Q'y
+## R beta = u
+## beta = R.inv u
+u <- t(Q) %*% y
+c(beta <- solve(R) %*% u)
+
+# # technically you don't need Q if A <- cbind(x, y)
+# u <- R[-nrow(R), ncol(R)]
+# R_1 <- R[-nrow(R), -ncol(R)]
+# c(beta <- solve(R_1) %*% u)
+
+
+# compare
+coef(lm(y ~ -1 + x))
+
+```
+
+
+
+
+

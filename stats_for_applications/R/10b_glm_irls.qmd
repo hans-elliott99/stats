@@ -93,11 +93,11 @@ For the Bernoulli family, we can derive (see lecture notes):
 ### newton-raphson / fisher-scoring
 ###
 # sim data
-sigmoid <- \(x) (1 / (1 + exp(-x)))
-xraw <- cbind(rnorm(100), rnorm(100))
-p_true <- sigmoid(1 + xraw[,1] + xraw[,2])
-yraw <- rbinom(100, size = 1, prob = p_true)
-# yraw <- p_true ## test to verify coefs all = 1
+nobs <- 1e3
+xraw <- cbind(rnorm(nobs), rnorm(nobs))
+p_true <- 1 / (1 + exp(-1)*exp(-2 * xraw[,1])*exp(-3 * xraw[,2]))
+yraw <- rbinom(nobs, size = 1, prob = p_true)
+# yraw <- p_true ## test to verify coefs are exact
 
 ### prep inputs
 x <- cbind(1, as.matrix(xraw))
@@ -510,9 +510,9 @@ init_binomial <- function(size = 1) {
 ```{r}
 # SIM SOME DATA
 fam <- init_binomial()
-xraw <- cbind(1, rnorm(100), rnorm(100))
-p_true <- fam$link_inv(1 + 2 * xraw[,1] + 3 * xraw[,2])
-yraw <- rbinom(100, size = 1, prob = p_true)
+xraw <- cbind(1, rnorm(1e3), rnorm(1e3))
+p_true <- 1 / (1 + exp(-1 - 2 * xraw[,2] - 3 * xraw[,3]))
+yraw <- rbinom(1e3, size = 1, prob = p_true)
 mod_bern <- fit_glm_irls(X = xraw, y = yraw, fam = fam)
 
 cat("Our IRLS coefs:\n", coef(mod_bern))
@@ -1013,7 +1013,7 @@ init_binomial <- function(size = 1) {
 # SIM DATA
 fam <- init_binomial()
 xraw <- cbind(1, rnorm(100), rnorm(100))
-p_true <- fam$link_inv(1 + 2 * xraw[,1] + 3 * xraw[,2])
+p_true <- 1 / (1 + exp(-1 - 2 * xraw[,2] - 3 * xraw[,3]))
 yraw <- rbinom(100, size = 1, prob = p_true)
 mod_bern <- fit_glm_irls(X = xraw, y = yraw, fam = fam)
 
@@ -1051,19 +1051,17 @@ rm(fam, xraw, p_true, yraw, mod_bern)
 ```
 
 
-### Example with Data: Logistic regression on the kyphosis dataset
+### Example with Data: Logistic regression on kyphosis data
 
 **DATA**:
 
-The kyphosis dataset represents data on children who have had corrective
-spinal surgery.
+The kyphosis data samples children who have had corrective spinal surgery.
 
 Variables:
 
--   kyphosis: indicates if kyphosis, a type of deformation, is present
-    after the operation\
--   age: age of patient in months\
--   number: the number of vertebrae involved\
+-   kyphosis: indicates if kyphosis, a type of deformation, is present after the operation
+-   age: age of patient in months
+-   number: the number of vertebrae involved
 -   start: the number of the first (topmost) vertebra operated on
 
 We will model the presence of kyphosis as a Bernoulli random variable, so we seek to estimate $p$ - the probability of kyphosis - conditional on covariates.  
@@ -1121,7 +1119,8 @@ ggplot(testage, aes(x = age)) +
   coord_cartesian(xlim = c(0, 400)) +
   theme(legend.position = "none") +
   labs(title = "Modeled Probability of Kyphosis",
-       x = "Age (months)", y = "P")
+       x = "Age (months)",
+       y = "P")
 
 ```
 
@@ -1132,7 +1131,7 @@ ggplot(testage, aes(x = age)) +
 size <- 30
 fam <- init_binomial(size = size)
 xraw <- cbind(1, rnorm(100), rnorm(100))
-p_true <- fam$link_inv(1 + 2 * xraw[,1] + 3 * xraw[,2])
+p_true <- fam$link_inv(1 + 2 * xraw[,2] + 3 * xraw[,3])
 yraw <- rbinom(100, size = size, prob = p_true)
 
 # Binomial Model: Y|X ~ Binomial(30, p)
@@ -1142,10 +1141,8 @@ print_glm(mod_binom)
 
 # compared to stats::glm - same results:
 #
-# first, prep the outcome vector:
 # left col is no. of successes, right col is no. of failures
-ytrials <- cbind(yraw, size - yraw)
-summary(glm(ytrials ~ xraw[, 2:ncol(xraw)], family = binomial(),
+summary(glm(cbind(yraw, size - yraw) ~ xraw[, 2:ncol(xraw)], family = binomial(),
             weights = rep(100, 100)))
 
 
@@ -1240,25 +1237,36 @@ ggplot(mite_fit, aes(x = WatrCont, y = fit)) +
 Given $\theta = h(X \beta)$, where $h$ is identity under the canonical
 link:
 
-The canonical log link function $g(\mu)$ is $\log(\mu) = \theta$.\
-Its inverse is:\
+The canonical log link function $g(\mu)$ is $\log(\mu) = \theta$.  
+
+Its inverse is:
 $$
 \mu(\theta) = g^{-1}(\theta) = \exp(\theta)
 $$
 
-And the derivative of the inverse is:\
+And the derivative of the inverse is:  
 $$
 \mu'(\theta) = \exp(\theta)
-$$ And the variance as a function of $\mu$ is just $\mu$:
+$$
+
+And the variance as a function of $\mu$ is just $\mu$:
 
 $$
-Var(\mu) = \exp(\theta) = \mu
-$$ (recall $\mu = g^{-1}(\theta)$). That is, the mean and variance are
-equal in a Poisson model.
+V(\mu) = \exp(\theta) = \mu
+$$
+
+That is, the mean and variance are equal for the Poisson distribution.
+
+The deviance of a single observation for the Poisson family takes form:  
+$$
+d_i = 2 w_i (y_i \log(y_i / \hat{\mu}_i) - (y_i - \hat{\mu}_i))
+$$
+
+The (un-scaled) residual deviance is, again, $D = \sum_i d_i$.  
 
 For the poisson family, $\phi = 1$.
 
-Fairly simple!
+
 
 ```{r}
 #
@@ -1281,6 +1289,20 @@ variance.poisson <- function(mu) {
   return(mu)
 }
 
+.ylogy <- function(y, mu) {
+  v <- y / mu
+  ix <- v != 0
+  v[ix] <- log(v[ix])
+  return(y * v)
+}
+
+deviances.poisson <- function(y, mu, weights) {
+  d <- 2 * weights * (
+    .ylogy(y, mu) - y + mu
+  )
+  return(d)
+}
+
 # based on possion()$init
 init.poisson <- function(y, weights, fam) {
   return(list(
@@ -1298,6 +1320,7 @@ init_poisson <- function() {
     link_inv = link_inv.poisson,
     mu_eta = mu_eta.poisson,
     variance = variance.poisson,
+    deviances = deviances.poisson,
     init = init.poisson,
     params = list()
   )
@@ -1305,101 +1328,71 @@ init_poisson <- function() {
 }
 ```
 
+
+Here is a simulated example:  
+
+
 ```{r}
 # SIM DATA
-# fam <- init_poisson()
-# xraw <- cbind(1, rnorm(100), rnorm(100))
-# lambda_true <- fam$link_inv(1 + 2 * xraw[,1] + 3 * xraw[,2])
-# yraw <- rpois(100, lambda = lambda_true)
-# mod_pois <- fit_glm_irls(X = xraw, y = yraw, fam = fam)
-# 
-# cat("Our IRLS:",
-#     "\n coef: ", coef(mod_pois),
-#     "\n SEs:  ", mod_pois$se,
-#     "\n dispersion: ", mod_pois$dispersion,
-#     "\n   converged in", mod_pois$it, "fisher-scoring/IRLS iterations.\n")
-# 
-# summary(glm(yraw ~ -1 + xraw, family = poisson(link = "log")))$coef
+fam <- init_poisson()
+xraw <- cbind(1, rnorm(1e3), rnorm(1e3))
+lambda_true <- exp(1 + 2 * xraw[,2] + 3 * xraw[,3])
+yraw <- rpois(1e3, lambda = lambda_true)
+mod_pois <- fit_glm_irls(X = xraw, y = yraw, fam = fam)
+print_glm(mod_pois)
+
+summary(glm(yraw ~ xraw[, 2:ncol(xraw)], family = poisson(link = "log")))
 
 ```
 
 
-### Example with Data: Poisson GLM with the Seatbelts dataset
+### Example with Data: Poisson regression with the *Oribatid mites* data
 
-**DATA**:
+Sticking with the mites data for simplicity, we can model the number of occurrences of species 1 as a Poisson random variable, meaning we want to estimate the parameter $\lambda$, which is the average count of species 1, conditional on covariates. 
 
-The `Seatbelts` dataset contains information collected on monthly totals
-of car accidents in Great Britain from 1969 to 1984.
-
-Variables:
-
--   DriversKilled: count of drivers killed\
--   kms: distance driven\
--   PetrolPrice: petrol price
 
 ```{r}
-# seatbelts <- data.frame(Seatbelts)
-# head(seatbelts)
-# xvars <- c("kms", "PetrolPrice")
-# 
-# # GLM (poisson regression)
-# # Y|X ~ Poisson(lambda)
-# # canonical log link
-# fam <- init_poisson()
-# x <- cbind(intercept = 1, seatbelts[, xvars])
-# y <- seatbelts$DriversKilled 
-# mod_driv <- fit_glm_irls(X = x, y = y, fam = fam)
-# 
-# 
-# cat("Our IRLS:",
-#     "\n coef: ", coef(mod_driv),
-#     "\n SEs:  ", mod_driv$se,
-#     "\n dispersion: ", mod_driv$dispersion,
-#     "\n   converged in", mod_driv$it, "fisher-scoring/IRLS iterations.\n")
-# 
-# fitglm <- glm(DriversKilled ~ kms + PetrolPrice,
-#               family = poisson("log"),
-#               data = seatbelts)
-# summary(fitglm)
-# 
-# # compute on "new" data...
-# testpetrol <- data.frame(intercept = 1,
-#                          kms = mean(seatbelts$kms), # hold fixed
-#                          PetrolPrice = seq(0, 0.5, length = 500)) 
-# 
-# testpetrol <- within(testpetrol, {
-#   bs <- coef(mod_driv)
-#   # ugly but proves a point
-#   pred_logit <- bs[1] + kms * bs[2] + PetrolPrice * bs[3]
-#   pred <- fam$link_inv(pred_logit)
-#   rm(bs)
-# })
-# 
-# # i.e., predict(fitglm, newdata = testpetrol, type = "response")
-# ix <- which(testpetrol$PetrolPrice > 0.08 & testpetrol$PetrolPrice < 0.14)
-# plot(testpetrol$PetrolPrice[ix], testpetrol$pred[ix],
-#      type = "l",
-#      main = "Modeled count of drivers killed",
-#      xlab = "Petrol Price", ylab = "Count"
-#      ); points(seatbelts$PetrolPrice, seatbelts$DriversKilled)
-# 
-# # what if gas was free?
-# plot(testpetrol$PetrolPrice, testpetrol$pred,
-#      type = "l",
-#      main = "Modeled count of drivers killed",
-#      xlab = "Petrol Price", ylab = "Count"
-#      ); points(seatbelts$PetrolPrice, seatbelts$DriversKilled)
+# MODEL
+# Y|X ~ Poisson(lamda)
+head(mite)
+
+X <- cbind(1, mite[, xvars])
+y <- mite[, "spec1"]
+fam <- init_poisson()
+mod_mite2 <- fit_glm_irls(X, y, fam = fam)
+
+print_glm(mod_mite2)
+
+
+fitglm <- glm(spec1 ~ SubsDens + WatrCont, family = poisson(), data = mite)
+summary(fitglm)
+
+# PLOT
+Xnew = data.frame(
+  intercept = 1,
+  SubsDens = mean(mite$SubsDens),
+  WatrCont = seq(min(mite$WatrCont)-10, max(mite$WatrCont)+10, length = 100)
+)
+mite_fit <- cbind(Xnew,
+                  predict_glm(mod_mite2, Xnew, type = "response"))
+
+ggplot(mite_fit, aes(x = WatrCont, y = fit)) +
+  geom_ribbon(aes(ymin = lwr_ci, ymax = upr_ci), alpha = 0.45) +
+  geom_line() +
+  geom_point(data = mite, aes(x = WatrCont, y = spec1)) +
+  labs(title = "Modeled Count of Mite Species 1",
+       subtitle = "Fit and 95% Confidence Interval",
+       x = bquote("Water Content of Moss Core (g"~ dm^-3~")"),
+       y = "Count") +
+  theme_bw()
+
 
 ```
+
 
 # TODO:
 
 - Implement AIC?
 
 - More examples in a new document (Poisson, Gaussian, ...)
-
-
-
-
-
 
