@@ -10,6 +10,8 @@ toc: true
 Notes based on McCullagh and Nelder, 1983, section 3.8.2 and [Interactive Linear Algebra](https://textbooks.math.gatech.edu/ila/orthogonal-sets.html)
 
 
+# Intro
+
 Recall that least squares problems have a closed form solution:  
 $\hat{\beta} = (X^\top X)^{-1} X^\top Y$  
 as long as $X^\top X$ is invertible.  
@@ -19,13 +21,51 @@ In practice, stats software does not typically compute coefficients using this f
 
 First, consider that the *condition number* of a matrix is a measure of closeness to singularity. Recall, a singular matrix is non-invertible. Large values of the condition number can lead to numeric instability from rounding errors. Since $X^\top X$ has a condition number that is the square of the condition number of $X$, it is useful to avoid using/having to invert $X^\top X$.  
 
+Numeric instability is demonstrated by this example from 
+https://genomicsclass.github.io/book/pages/qr_and_regression.html:  
+
+
+```{r}
+n <- 50; M <- 500
+x <- seq(1, M, len=n)
+X <- cbind(1,x,x^2,x^3)
+colnames(X) <- c("Intercept","x","x2","x3")
+beta <- matrix(1, nrow = ncol(X), ncol = 1)
+set.seed(1)
+y <- X %*% beta + rnorm(n,sd=1)
+
+# solve for beta...
+try(solve(crossprod(X)) %*% crossprod(X,y))
+```
+
+
+Because of the way that $X$ is constructed, there is a mix of relatively small values and very large values. When we compute $X^\top X$, some of the values become huge. When we try to invert $X^\top X$ (with `solve`), we are essentially going to end up computing determinants, and some will become 0 due to floating point limitations (when we divide by a very big determinant).
+
+We can see that the reciprocal condition number is very close to 0, which is a sign that inverting the matrix won't go well.  
+
+```{r}
+head(X)
+head(crossprod(X))
+
+# reciprocal condition number (1 / condition number)
+rcond(X)
+rcond(crossprod(X))
+```
+
+
+
+# QR Decomposition
+
 The most popular method for performing least squares, and that used by R, is called QR factorization or decomposition.  
 
 
-The aim is to decompose $X \in n \times p$ into the product of 2 matrices: the $n \times n$ orthogonal matrix $Q$ and the $n \times p$ upper right triangle matrix $R$, where $R_1$ will denote the upper right triangle of $R$.  
+The aim is to decompose $X \in n \times p$ into the product of 2 matrices: the $n \times p$ orthogonal matrix $Q$ and the $p \times p$ upper right triangle matrix $R$, where $R_1$ will denote the upper right triangle of $R$.  
 
 We can motivate the procedure statistically:  
-If $y$ is the outcome vector with mean $X \beta$ and variance $\sigma^2 I$, we can make an orthogonal transformation to new variables $u$ defined by $u = Q^\top y$. Then, the new mean and variance are:  
+If $y$ is the outcome vector with mean $X \beta$ and variance $\sigma^2 I$, we can make an orthogonal transformation to new variables $u$ defined by:  
+$u = Q^\top y$.  
+
+Then, the new mean and variance are:  
 
 - $E[U] = Q^\top E[Y] = Q^\top X\beta = Q^\top Q R \beta = R\beta = R_1 \beta$  
   - Since the last $n - p$ components of $U$ have 0 expectation (due to $R$ being an upper right triangle matrix), they give no information about $\beta$.  
@@ -34,63 +74,291 @@ If $y$ is the outcome vector with mean $X \beta$ and variance $\sigma^2 I$, we c
 
 Thus, $R_1 \hat{\beta} = u_1$, which is easily solved because there is a simple inversion algorithm for triangular matrices (more on that later).  
 
+
+
 So far we can see that we need $Q$, to compute $u = Q^\top y$, and we need $R$ to compute $R_1 \hat{\beta} = u_1$.  
 
-Technically, it is not necessary to compute $Q$ explicitly because if $y$ is appended to $X$ (so the matrix has form $\{X : y\}$) the sequence of operations that takes $X$ to $R$ also transforms $\{X : y\}$ to $\{R : u\}$.  
+- Technically, it is not necessary to compute $Q$ explicitly because if $y$ is appended to $X$ (so the matrix has form $\{X : y\}$) the sequence of operations that takes $X$ to $R$ also transforms $\{X : y\}$ to $\{R : u\}$.  
 This means the first $p$ rows of the augmented matrix $\{R : u\}$ can be used to get the coefficients.  
 
 There are a few methods of finding $Q$ and $R$, but the preferred is the Gram-Schmidt method, which orthogonalizes the columns of the design matrix $X$.  
 
+## Gram-Schmidt
 
-https://textbooks.math.gatech.edu/ila/orthogonal-sets.html  
+The Gram-Schmidt procedure is presented in linear algebra as a method for obtaining an orthogonal basis for a subspace, which makes computations easier, particularly when they involve projections (recall that linear regression involves the orthogonal projection of $Y$ onto the column space of $X$). 
 
-https://genomicsclass.github.io/book/pages/qr_and_regression.html
+In the linear regression scenario, the subspace of interest is the column space of $X$ and by finding its orthogonal basis we can construct the $n \times p$ orthogonal matrix $Q$ (and as a byproduct, we will compute $R$).
+
+First, recall some key points from linear algebra:  
+
+  - In linear algebra, a basis of a vector space is a set of linearly independent vectors that spans the entire space.  
+  - An orthogonal basis is such a set where the basis vectors are mutually orthogonal.  
+    - A set of vectors $\set{u_1, ..., u_n}$ is called **orthogonal** if $u_i \cdot u_j = 0$ whenever $i \ne j$ (picture each vector being perpendicular to one another, like the x, y, z axes in $\mathbb{R}^3$).  
+    - Also note that an **orthonormal** basis is an orthogonal basis of unit vectors.  
+
+  -  An orthogonal basis of $W$ has a simple formula for orthogonally projecting a vector $x$ onto it:  
+    $x_W = \frac{x \cdot u_1}{u_1 \cdot u_1} u_1 + ... + \frac{x \cdot u_m}{u_m \cdot u_m} u_m$.   
+      - Note that if the basis is orthonormal, the denominators are always 1.  
+
+  - A subspace $W \in \mathbb{R}^n$ has an orthogonal complement $W^\perp$, which is the set of all vectors $v$ in $\mathbb{R}^n$ that are orthogonal to all the vectors in $W$.
+  - **Orthogonal decomposition:** for any vector $x$ in $\mathbb{R}^n$, if $W$ is a subspace of $\mathbb{R}^n$ then we can write $x = x_W + x_{W^\perp}$, where $x_W$ is the closest vector to $x$ on $W$ (i.e., the orthogonal projection of $x$ onto $W$) and $x_{W^\perp}$ is a vector in $W^\perp$ (the orthogonal complement to $W$).  
+
+
+The **Gram-Schmidt** process is defined as so:    
+
+Let $\set{v_1, ..., v_m}$ be a basis for a subspace $W$ of $\mathbb{R}^n$. 
+To construct the orthogonal basis $\set{u_1, ..., u_m}$ for $W$,  
+define:  
+
+1. $u_1 = v_1$  
+2. $u_2 = (v_2)_{\text{Span}(u_1)^\perp} = v_2 - \frac{v_2 \cdot u_1}{u_1 \cdot u_1} u_1$   
+3. $u_3 = (v_3)_{\text{Span}(u_1, u_2)^\perp} = v_3 - \frac{v_3 \cdot u_1}{u_1 \cdot u_1} u_1 - \frac{v_3 \cdot u_2}{u_2 \cdot u_2} u_2$  
+
+$\cdots$  
+
+m. $u_m = (v_m)_{\text{Span}(u_1, \dots, u_{m-1})^\perp} = v_m - \sum_{i=1}^{m-1} \frac{v_m \cdot u_i}{u_i \cdot u_i} u_i$
+
+  - First note that $u_1 = v_1$ is clearly in $\text{Span}(v_1)$. $u_2$ is a linear combination of $v_2$ and $u_1$, so it is in $\text{Span}(v_1, v_2)$. Like this, we can show that each $u_i$ is in $\text{Span}(v_1, \dots, v_i)$ and thus each $u_i$ is in $W$ (important considering the $u_i$ will be an (orthogonal) basis for $W$).  
+  - Now note that $\set{u_1, \dots, u_{i - 1}}$ is an orthogonal set, by definition, since each vector $u_i$ after $u_1$ is defined as the projection of $v_i$ onto orthogonal complement of the span of all of the previous $u_j$.
+    - Recall, the orthogonal complement of the span $\text{Span}(u_1, \dots, u_{m-1})$ is the set of all vectors in $\mathbb{R}^n$ that are orthogonal to all of the vectors in the span. So, projection of a vector from a subspace into its orthogonal complement implies the vector is orthogonal to the original subspace.  
+    - Thus, as we build up the set of $u_i$, each addition is orthogonal to all of the previous additions.  
+  - The orthogonal set is an orthogonal basis for the subspace spanned by $\text{Span}(u_1, \dots, u_{i - 1})$, which itself is a subspace of $W$.  
+  - For simplicity, call $W^* = \text{Span}(u_1, \dots, u_{i - 1})$. This is the subspace spanned by all of the previous columns, expressed using the orthogonal basis instead of the original basis.  
+  - From the orthogonal decomposition theorem, we can write $v_i = v_{i_{W^*}} + v_{i_{W^{*^\perp}}}$.  
+    - $v_{i_{W^*}}$ is the orthogonal projection of $v_i$ onto subspace $W^*$. Because we have the orthogonal basis for $W^*$ from the previous iterations, this is simple to compute. For the $m$-th basis vector,    
+    $v_{m_{W^*}} = \sum_{i=1}^{m-1} \frac{v_m \cdot u_i}{u_i \cdot u_i} u_i$  
+    - $v_{i_{W^{*^\perp}}}$ is the vector in ${W^*}^\perp$, the orthogonal complement of $W^*$ (think of it as the distance vector between the vector $v_i$ and  $v_{i_{W^*}}$, i.e., the residual).
+  
+  - Thus, to get the next orthogonal vector, we rewrite the orthogonal decomposition formula:  
+  $u_m = v_{m_{W^{*^\perp}}} = v_m - v_{m_{W^*}} = v_m - \sum_{i=1}^{m-1} \frac{v_m \cdot u_i}{u_i \cdot u_i} u_i$
+    - Note that if the $\set{u_1, \dots, u_{m-1}}$ are *orthonormal*, this simplifies further because $u_i \cdot u_i = 1$ (so the denominator can be ignored).  
+
+
+## Obtaining the orthogonal matrix $Q$
+
+Finally, note that we we can also use Gram-Schmidt to compute an *orthonormal basis*, which is an orthogonal basis of unit vectors (the magnitude of each vector is 1).  
+
+The difference is just that after computing each $u_i$, we convert them to unit vectors $e_i$ by dividing by the Euclidean norm:  
+$e_i = \frac{u_i}{||u_i||}$,  
+where $||u_i|| = \sqrt{\sum_{j=1}^n (u_i)_j^2 }$  
+
+So in QR decomposition for linear regression, our subspace of interest $W$ is the column space of $X$, and the original basis vectors $\set{ v_1, \dots, v_m}$ are just the columns of $X$.  
+
+
+After performing the Gram-Schmidt process, the resulting set of orthonormal basis vectors $\set{e_1, \dots, e_m}$ are the columns of $Q$.    
+
+
+## Obtaining the upper right triangular $R$
+
+Once we have computed $Q$, it is straight forward to compute $R$ because $Q^\top X = Q^\top Q R = R$.  
+
+- which is allowed because $Q$ being orthonormal implies that $Q^\top Q = I$, and in particular that $Q$ has a left inverse $Q^\top$.  
+- [notes](https://uregina.ca/~franklam/Math415/Math415_QR_Factorization.pdf)   
+
+We can think of each entry in $R$ as undoing the operations that took $X$ to $Q$ (since $X = QR$).  
+
+We can also compute $R$ during the Gram Schmidt iterations if we consider what each component of the upper right triangular will be:  
+
+- Given the orthonormal basis vectors $\set{e_1, \dots, e_m}$, and original basis vectors (i.e., the columns) $\set{v_1, \dots, v_m}$ the upper right triangular matrix has rows:  
+$[v_1 \cdot e_1, v_2 \cdot e_1, \dots, v_m \cdot e_1]$  
+$[~~~~~~~~~0, v_2 \cdot e_2, \dots, v_m \cdot e_2]$  
+$~~~~~~~~~~~~~~~~~~~~~~~~\cdots$  
+$[~~~~~~~~~0, ~~~~~~~~~0, \dots, v_m \cdot e_m]$  
+
+
+Note that for the diagonals, $v_i \cdot e_i = ||u_i||$
+
+- This is easy to show for the first orthogonal basis vector/first row of $R$:  
+$v_1 \cdot e_1 = u_1 \cdot (\frac{u_1}{||u_1||}) = \frac{u_1 \cdot u_1}{||u_1||} = \frac{||u_1||^2}{||u_1||} = ||u_1||$
+
+- This is convenient because we also needed to divide each column vector in $Q$ by $||u_i||$ to convert them to an orthonormal basis.  
+
+
+# QR Decomposition in R
+
+```{r}
+qr_decomp <- function(X, y = NULL) {
+  stopifnot(is.matrix(X))
+  if (!is.null(y)) stopifnot(is.matrix(y),
+                             nrow(y) == nrow(X),
+                             ncol(y) == 1)
+  # Gram-Schmidt
+  n <- nrow(X)
+  p <- ncol(X)
+  Q <- matrix(0, nrow = n, ncol = p)
+  R <- matrix(0, nrow = p, ncol = p)
+  for (j in 1:p) {
+    v <- X[, j, drop = FALSE] # v_j
+    u <- v # u_i, step 1
+    if (j > 1) {
+      for(i in 1:(j-1)) {
+          #          (u_i . v_j)
+          R[i, j] <- t(Q[, i, drop = FALSE]) %*% v
+          #    v - Sum_i proj_u_i(v_j) * (u_i), iteratively
+          u <- u - R[i, j] * Q[ ,i]
+      }
+    }
+    #         ||u_j||
+    R[j, j] = sqrt(crossprod(u))
+    #   e_j = u_j / ||u_j||
+    Q[ , j] = u / R[j, j]
+  }
+  # create u and solve for beta
+  #   u = Q'y; R b = u
+  #   b = R.inv u
+  if (!is.null(y)) {
+    u <- crossprod(Q, y)
+    beta <- backsolve(R, u)
+  } else {
+    beta <- NA_real_
+  }
+  return(list(Q = Q, R = R, beta = drop(beta)))
+}
+```
+
+Simulated example:  
+
+```{r}
+x <- cbind(1, rnorm(100), rnorm(100))
+y <- x[,1] + 2 * x[,2] + 3 * x[, 3] + rnorm(100, sd = 0.25)
+
+qr <- qr_decomp(x, as.matrix(y))
+
+# compare to R
+qr$beta
+coef(lm(y ~ -1 + x))
+```
+
+
+We could also compute $\beta = R^{-1} u$ using `solve` to invert $R$, but that would be less numerically stable.  
+Works fine in this case:  
+
+```{r}
+u <- t(qr$Q) %*% as.matrix(y)
+c(beta <- solve(qr$R) %*% u)
+```
+
+As noted above, if we apply gram schmidt to the augmented matrix that includes $y$, we don't need to explicitly use $Q$ to solve for $\beta$:  
+
+```{r}
+(Ru <- qr_decomp(X = cbind(x, y))$R)
+# u = Q %*% y, which is the last colum, without the last row
+(u <- Ru[-nrow(Ru), ncol(Ru)])
+# The rest of the matrix is the right triangular R
+(R <- Ru[-nrow(Ru), -ncol(Ru)])
+c(beta <- backsolve(R, u))
+```
+
+
+Note the orthonormal vectors of $Q$:  
+```{r}
+x <- cbind(rnorm(2), rnorm(2))
+(Q <- qr_decomp(x)$Q)
+
+# magnitude: expect 1
+c(
+  norm(Q[, 1, drop = FALSE], type = "2"),
+  norm(Q[, 2, drop = FALSE], type = "2")
+)
+
+# product of orthogonal vectors should be 0
+Q[, 1] %*% Q[, 2]
+
+
+plot(t(Q), #transpose to use columns as coordinates
+     xlim = c(-1, 1), ylim = c(-1,1),
+     xlab = "obs1", ylab = "obs2")
+arrows(0,0, x1 = Q[1,1], y1 = Q[2,1])
+arrows(0,0, x1 = Q[1,2], y1 = Q[2,2])
+
+```
+
+
+# Inverting an upper right triangular matrix
+
+As explained nicely by [wikipedia](https://en.wikipedia.org/wiki/Triangular_matrix#Forward_and_back_substitution), we can compute the inverse of any triangular matrix via forward/back substitution (in this case, back substitution, which is what `backsolve` accomplishes in the `qr_decomp` function above).  
+
+For our matrix equation of form $R \beta = u$, where $R \in m \times m$ is an upper right triangular, we have a system of linear equations:  
+$R_{1,1}\beta_1 + R_{1,2}\beta_2 + \dots + R_{1,m} \beta_m = u_1$  
+$0 + R_{2,2}\beta_1 + \dots + R_{2, m} \beta_m = u_2$   
+
+$\cdots$  
+
+$0 + \dots + 0 + R_{m-1, m-1} \beta_{m-1} + R_{m-1, m} \beta_m = u_{m-1}$  
+$0 + \dots + 0 + 0 + R_{m,m} \beta_m = u_m$
+
+Thus, we can solve the last equation for $\beta_m = u_m / R_{m,m}$ and then plug this result into the previous equation:  
+$\beta_{m-1} = u_{m-1} - \frac{R_{m-1, m} \beta_m}{R_{m-1, m-1}}$
+and continue on until we have solved for all of the components of $\beta$.  
+
+So going backward from the last equation (row) to the first, at each step $j$ we do:    
+
+- At step $j = m$, we compute:  
+$\beta_j = u_j / R_{j,j}$.  
+- At every other step $j < m$ (going backwards) we compute:  
+$\beta_j = u_j - \sum_{i = j + 1}^{m} \frac{R_{j,i} \beta_{i}}{R_{j,j}}$
+  - For example, say $R \in 3 \times 3$.  
+  $\beta_3 = u_3 / R_{3,3}$  
+  $\beta_2 = u_2 - \sum_{i = 3}^{3} \frac{R_{2,3} \beta_3}{R_{3,3}} = u_2 - \frac{R_{2,3}\beta_3}{R_{3,3}}$  
+  $\beta_1 = u_1 - \sum_{i = 2}^3 \frac{R_{1,i} \beta_i}{R_{1,1}}$  
 
 
 
 ```{r}
 x <- cbind(1, rnorm(100), rnorm(100))
-y <- x[,1] + 2 * x[,2] + 3 * x[, 3] + rnorm(100, sd = 0.25)
-A <- cbind(x)
+y <- as.matrix(x[,1] + 2 * x[,2] + 3 * x[, 3] + rnorm(100, sd = 0.25))
+qr <- qr_decomp(x, y)
 
-# Gram-Schmidt the design matrix
-m <- nrow(A)
-n <- ncol(A)
-Q <- matrix(0, nrow = m, ncol = n)
-R <- matrix(0, nrow = n, ncol = n)
-for (j in 1:n) {
-  A_j <- A[, j, drop = FALSE]
-  v <- A_j
-  if (j > 1) {
-    for(i in 1:(j-1)) {
-            R[i, j] <- t(Q[,i,drop = FALSE]) %*% A_j
-            v <- v - R[i, j] * Q[ ,i]
+(R <- qr$R)
+(u <- t(qr$Q) %*% y)
+
+#
+# backsolve for beta
+m <- ncol(R)
+beta <- numeric(m)
+for (j in seq.int(m, 1)) {
+  beta[j] <- u[j]
+  if (j < m) {
+    for (i in seq.int(j+1, m)) {
+      beta[j] <- beta[j] - R[j, i] * beta[i]
     }
   }
-  R[j, j] = sqrt(crossprod(v)) # i.e., norm(v, type = "2")
-  Q[ , j] = v / R[j, j]
+  beta[j] <- beta[j] / R[j, j]
 }
 
-
-# create u and solve for beta
-## u = Q'y
-## R beta = u
-## beta = R.inv u
-u <- t(Q) %*% y
-c(beta <- solve(R) %*% u)
-
-# # technically you don't need Q if A <- cbind(x, y)
-# u <- R[-nrow(R), ncol(R)]
-# R_1 <- R[-nrow(R), -ncol(R)]
-# c(beta <- solve(R_1) %*% u)
-
-
-# compare
-coef(lm(y ~ -1 + x))
+cat("Manual backsolve results\n",
+    beta,
+    "\nR's backsolve results\n",
+    qr$beta, "\n")
 
 ```
 
 
 
+# Standard Errors
 
+To compute the covariance matrix, $\sigma^2 (X^\top X)^{-1}$, we can use:  
+
+$(X^\top X)^{-1} = ((QR)^\top QR)^{-1} = (R^\top Q^\top Q R)^{-1} = (R^\top R)^{-1}$.  
+
+```{r}
+x <- cbind(1, rnorm(100), rnorm(100))
+y <- x[,1] + 2 * x[,2] + 3 * x[, 3] + rnorm(100, sd = 0.25)
+
+R <- qr_decomp(x, as.matrix(y))$R
+
+(trr <- crossprod(t(R), R))
+
+# take advantage of upper right triangle matrix:
+diag(backsolve(trr, diag(ncol(trr))))
+
+# or not
+diag(solve(trr))
+
+# compare with R
+# (divide by sigma^2 to get back to (X'X)^-1)
+mod <- lm(y ~ -1 + x)
+diag(vcov(mod) / (sigma(mod)^2))
+
+```
 
