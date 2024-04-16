@@ -1,0 +1,227 @@
+---
+title: "Bayesian Models and the Metropolis-Hastings Sampling Algorithm"
+author: "Hans Elliott"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+
+Notes from: <https://statprog-s1-2020.github.io/>
+
+- <https://media.ed.ac.uk/media/1_53nnznqv>
+
+
+
+https://blog.djnavarro.net/posts/2023-04-12_metropolis-hastings/
+
+
+## Setup
+
+```{r}
+library(ggplot2)
+data("nhtemp")
+```
+
+Consider the `nhtmep` data giving annual mean temperatures $T_i$ in New Haven over several years.  
+
+```{r}
+hist(nhtemp)
+```
+
+Suppose we want to model the data using a heavy-tailed distribution:  
+
+$$
+(T_i - \mu) / \sigma \sim_{iid} t_\nu
+$$
+where $\mu$, $\sigma$, and $\nu$ are parameters of the T distribution (with $\nu$ d.o.f.).  
+
+If $f_\nu$ is te p.d.f. of a $t_\nu$ distribution, then the p.d.f. for $T_i$ is:  
+$$f(t) = f_\nu(\frac{t - \mu}{\sigma}) / \sigma$$
+
+- Based on transformation theory, must divide by $\sigma$.   
+- https://www.statlect.com/probability-distributions/student-t-distribution 
+
+
+## Likelihood
+
+We can write the log likelihood in R:  
+
+- We exponentiate $\theta_2$ so that $\sigma$ remains positive.  
+- We add 1 to the degrees of freedom $\nu$ so that the d.o.f. remain greater than 1 and we don't end up with a Cauchy distribution. So technically we are going to estimate d.o.f. - 1.      
+- In the density calculation, we do everything on the log scale for the standard reasons (usually simplifies the likelihood function) and because some of the probabilities may be very small and we don't want to underflow to 0.  
+
+```{r}
+loglikT <- function(theta, Y) {
+  mu <- theta[1]
+  sig <- exp(theta[2])
+  df <- 1 + exp(theta[3])
+  # evaluate the density f_nu
+  sum(dt((Y - mu) / sig, df = df, log = TRUE) - log(sig))
+}
+```
+
+
+## Priors
+
+To complete the model we need priors for the parameters.  
+
+Let's use the improper uniform priors for $\theta_1 = \mu$ and $\theta_2 = \log(\sigma)$.  
+
+$\nu$ becomes somewhat unidentifiable if it is too high, so for convenience let's assume a prior of $\log \nu = \theta_3 \sim N(3, 2^2)$.  
+
+This completes the parts needed for the actual Bayesian model.  
+
+
+## Proposal Distribution
+
+For the sake of using the Metropolis-Hastings algorithm, we need to pick a proposal distribution which will be used to generate the proposal values at each step of the markov chain.  
+
+Let's use a *random walk* proposal of:  
+$$\theta_i' \sim N(\theta_{i-1}, \textbf{D})$$
+where $\textbf{D}$ is diagonal, and we will need to tune its elements.  
+
+- Note that for this proposal, $q(\theta_i' | \theta_{i-1}) = q(\theta_{i-1}|\theta_i')$, so $q$ cancels in the MH acceptance ratio.  
+
+- Recall, the proposal is part of the MH algorithm and not part of the model - it does not change the posterior but will affect how quickly the chain explores the posterior.  
+
+
+## Metropolis-Hastings Samples
+
+```{r}
+ns <- 10000 # num stesp
+th <- matrix(0, nrow = 3, ncol = ns) # parameters at each step
+
+#
+# define staring/initializing values (easy in this scenario)
+th[, 1] <- c(
+  mean(nhtemp),    # \mu
+  log(sd(nhtemp)), # \sigma
+  log(6)           # \nu
+)
+
+#
+# initial log likelihood
+ll_th <- loglikT(th[, 1], nhtemp)
+
+#
+# initial log of prior density
+## improper uniform priors for mu and sigma (theta_1 and theta_2)
+## theta_3 (nu) has a gaussian prior
+lprior_th <- dnorm(th[3, 1], mean = 3, sd = 2, log = TRUE)
+
+#
+# proposal standard deviation (would be tuned in practice)
+p_sd <- c(.5, .1, 1.2)
+
+#
+# acceptance counter
+## good idea to keep track of how often steps are being accepted/rejected.
+## For a random walk type proposal distribution, ~roughly a 1/4 acceptance rate
+## is a good rule of thumb.
+accept <- 0
+
+#
+# start MH sampler iterations
+for (i in seq(2, ns)) {
+    # proposal
+    ## use previous state of chain to generate proposed theta values 
+    thp <- th[, i - 1] + rnorm(3) * p_sd
+    # log prior for the proposal
+    ## (only needed for nu since mu,sigma have improper uniform priors)
+    lprior_p <- dnorm(thp[3], mean = 3, sd = 2, log = TRUE)
+    # log likelihood of the proposal
+    ll_p <- loglikT(thp, nhtemp)
+    # acceptance
+    ## determine whether to accept/reject the proposal based on MH accept ratio
+    ## (likelihood of proposal * prior of proposal) /
+    ##    (likelihood of previous state * prior of previous state)
+    accept_prob <- exp(ll_p + lprior_p - ll_th - lprior_th)
+    if (runif(1) < accept_prob) {
+        # current state becomes proposal
+        th[, i] <- thp
+        ll_th <- ll_p
+        lprior_th <- lprior_p
+        accept <- accept + 1
+    } else {
+        # reject - current state remains the same as previous
+        th[, i] <- th[, i-1]
+    }
+}
+
+accept/ns ## about 1/4 is ideal
+```
+
+
+Examine the chains:  
+
+- The chain for $\mu$ is "mixing" well, since it bouncing around the initial value and doesn't show signs of serial autocorrelation.  
+- The other chains appear more autocorrelated.  
+
+
+```{r}
+par(mfrow = c(3,1), mar = c(4,4,1,1))
+plot(th[1,], type = "l", main = "mu", xlab = "")
+plot(th[2,], type = "l", main = "log(sigma)", xlab = "")
+plot(th[3,], type = "l", main = "log(nu)", xlab = "iteration")
+
+```
+
+Chain correlation and marginal posteriors:  
+
+- Plotting the chain correlation with its lags, we can see that $\mu$ is much less autocorrelated then $log(\sigma)$ or $\log(\nu)$.  
+- The histograms show the marginal distributions of each parameter.
+
+```{r}
+par(mfrow = c(2,3))
+acf(th[1,]); acf(th[2,]); acf(th[3,])
+hist(th[1,]); hist(th[2,]); hist(th[3,])
+```
+
+
+Confidence Intervals & Posterior Means:  
+
+```{r}
+# transform sigma and nu from log scale
+thtr <- th
+thtr[2:3, ] <- exp(thtr[2:3, ])
+thtr[3, ] <- thtr[3, ] + 1
+
+#
+# posterior means:
+posterior_means <- rowMeans(thtr)
+setNames(posterior_means, c("mu", "sigma", "nu"))
+
+#
+# 95% credible intervals:
+ci <- apply(thtr, 1, quantile, prob = c(.025, .975))
+`colnames<-`(ci, c("mu", "sigma", "nu"))
+```
+
+
+```{r}
+dat <- data.frame(
+  temp = as.numeric(nhtemp)
+)
+
+ggplot() +
+  geom_histogram(data = dat, aes(x = temp), fill = "#fcba03", bins = 30) +
+  geom_vline(xintercept = posterior_means[1], linewidth = 1) +
+  geom_rect(aes(xmin = ci[1, 1], xmax = ci[2, 1], ymin = 0, ymax = Inf),
+            alpha = 0.5) +
+  geom_vline(xintercept = ci[, 1], linetype = "dashed", alpha = 0.25) +
+  coord_cartesian(ylim = c(0, 8), expand = FALSE) +
+  labs(title = "Average Yearly Temperature (Farenheit) in New Haven",
+       subtitle = "With mean and 95% credible interval",
+       x = expression("Temperature ("*~degree*F*")"),
+       y = "Number of Years") +
+  theme_bw()
+
+```
+
+
+
+
+
+

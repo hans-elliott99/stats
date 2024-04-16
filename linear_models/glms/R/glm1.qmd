@@ -35,12 +35,12 @@ Quick recap of GLMs plus some notation:
 We assume $Y|X$ is distributed according to some sub-family of probability distributions from the greater exponential family (e.g., Gaussian, Poisson, binomial), with mean parameter $\mu = E[Y|X]$ and dispersion parameter $\phi$, which may be know.  
 
 
-The exponential family has distribution of the form (in canonical form here):
+Distributions in the exponential family have density functions of the form (when written in canonical form):
 
 $$
 f_\theta(y) = \exp(~~ \frac{y \theta - b(\theta)}{a(\phi)} + c(y, \phi) ~~)
 $$
-Where $b$ is known and is the cumulant generating function, $c$ is known, and is essentially a normalizing constant that we can drop when we maximize the likelihood, and typically $a(\phi) = \phi/w$, for some prior weights $w$ (which you can think of as $1$ in most cases).
+Where $b$ is known and is the cumulant generating function, $c$ is known, and is essentially a normalizing constant that we will drop when we maximize the likelihood, and typically $a(\phi) = \phi/w$, for some prior weights $w$ (which you can think of as $1$ in many common cases).  
 
 
 Then we assume our model is of the form:
@@ -48,7 +48,7 @@ $$
 g(\mu) = X \beta; ~~X\in\mathbb{R}^{n \times p}, \beta \in \mathbb{R}^p
 $$
 
-$g$ is the link function which maps the mean parameter $\mu$ from its domain to $\mathbb{R}$, so that it can be modeled by $X \beta$. The link must be invertible so that we can compute $E[Y|X] = \mu = g^{-1}(X \beta)$.  
+$g$ is the link function which maps the mean parameter $\mu$ from its domain to $\mathbb{R}$, so that it can be modeled by $X \beta$. The link must be invertible so that we can compute $\mu = g^{-1}(X \beta)$.  
 
 We may refer to $\eta = X \beta$ as the "linear predictor".  
 
@@ -171,7 +171,7 @@ $$Z_i^{(k)} = \eta + \frac{(Y_i - \mu_i^{(k)})}{\mu'(\eta)}$$
 To compute these we need the following functions and variables, which are dependent on the particular exponential family-member we are fitting a GLM for:  
 
 -   $\partial \mu / \partial X\beta$, where $X \beta$ is often written as $\eta$ in the GLM world, so we need $\mu'(\eta)$ (recall $\mu = g^{-1}(\eta)$, so $\mu' = (g^{-1})'$). This is the function that `stats::glm` refers to as `mu.eta`.
--   $Var(\mu)$, the variance for the exponential family as a function of $\mu$
+-   $V(\mu)$, the variance for the exponential family as a function of $\mu$
 - $w$, the prior weight vector (recall $a(\phi) = \phi/w$ from above)
 
 
@@ -227,14 +227,11 @@ wls <- function(y, x, w = rep_len(1L, nrow(x))) {
   x <- as.matrix(x)
   if (is.matrix(w)) stop("Weights must be a vector.")
   if (any(w < 0)) stop("Weights must be positive.")
-  # solve(t(xw) %*% xw) %*% t(xw) %*% yw, below should be faster
   sqw <- sqrt(w)
   xw <- x*sqw
   yw <- y*sqw
-  betas <- crossprod(
-    solve(crossprod(xw)),
-    crossprod(xw, yw)
-  )
+  # do solve(t(xw) %*% xw) %*% t(xw) %*% yw, but below should be faster
+  betas <- crossprod(solve(crossprod(xw)), crossprod(xw, yw))
   return(c(betas))
 }
 
@@ -1395,4 +1392,9 @@ ggplot(mite_fit, aes(x = WatrCont, y = fit)) +
 - Implement AIC?
 
 - More examples in a new document (Poisson, Gaussian, ...)
+
+- Offsets example with Poisson,  
+https://stats.stackexchange.com/questions/175349/in-a-poisson-model-what-is-the-difference-between-using-time-as-a-covariate-or
+
+
 

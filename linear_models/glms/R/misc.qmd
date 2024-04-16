@@ -1,0 +1,84 @@
+---
+title: "Generalised Linear Models - Random Bits"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+
+
+# Information curve in OLS
+
+```{r}
+X <- matrix(rnorm(50))
+y <- X * 3 + rnorm(50, sd = 0.1)
+mle <- solve(t(X) %*% X) %*% t(X) %*% y
+
+
+xax <- seq(-5, 10, length = 50)
+plot(xax, sapply(
+  xax,
+  \(b1) {
+    beta <- as.matrix(b1)
+    v <- (y - X %*% beta)
+    t(v) %*% v
+  }
+), main = "Sum of Squared Residuals",
+   xlab = expression(beta[1]),
+   ylab = "Squared Euclidean Distance")
+
+abline(v = mle)
+text(mle, 2500, paste("MLE:", 3))
+
+```
+
+
+Information surface for 2 covariate model:  
+
+```{r}
+X <- cbind(1, rnorm(50))
+y <- X[, 1] * 1 + X[, 2] * 2 + rnorm(50, sd = 0.1)
+mle <- solve(t(X) %*% X) %*% t(X) %*% y
+
+
+rss <- function(b1, b2) {
+  # calculate residual sum of squares
+  beta <- as.matrix(c(b1, b2))
+  r <- y - X %*% beta
+  t(r) %*% r
+}
+
+# try combinations of beta1 and beta2 and find minimum rss
+tryb <- seq(-1, 4, length = 100)
+discrep <- matrix(nrow = length(tryb), ncol = length(tryb))
+for (i in 1:nrow(discrep)) {
+  for (j in 1:ncol(discrep)) {
+    discrep[i, j] <- rss(tryb[i], tryb[j])
+  }
+}
+
+filled.contour(tryb, tryb, discrep,
+               plot.title = {
+                 title(main = "Information Surface",
+                       xlab = expression(beta[1]),
+                       ylab = expression(beta[2]),
+                       key = "RSS")
+               },
+               key.title = {
+                 title(main = "RSS", cex.main = 0.75)
+               },
+               plot.axes = {
+                 axis(1); axis(2);
+                 points(mle[1], mle[2], pch = 10)
+                 text(mle[1], mle[2] + 0.5,
+                      paste0("MLE: (", round(mle[1]), ", ", round(mle[2]), ")"))
+               })
+```
+
+
+
+
+
+
+

@@ -206,8 +206,24 @@ Some examples of $D$:
 
 Note: it is a common misconception that $D^* \sim \chi^2_{n - p}$. This is only true in some special circumstances, but in general the $\chi^2$ approximations of the deviance are not good even as $n \to \infty$ (Nelder and McCullagh, pg 36).
 The misconception may be due to the likelihood ratio test, see that section.  
+For more on why the $\chi^2$ approximation is not good, see the notes in 99_glm on the asymptotic distribution of the deviance for the binomial distribution.  
 
-However, we can utilize $\chi^2$ approximations of the *differences* between deviances for nested models.
+However, we can utilize $\chi^2$ approximations of the *differences* between deviances for nested models:  
+*N&M pg. 119*  
+
+The deviance function is most directly useful not as a measure of goodness-of-fit but for comparing 2 nested models - e.g., if we wish to test whether adding a new covariate significantly improves the model fit.  
+
+Let $H_0$ denote the model under the test and $H_A$ be the extended model with an additional covariate, with corresponding fitted values denoted $\hat{\mu}_0$ and $\hat{\mu}_A$ respectively.  
+
+The reduction in deviance is:  
+$D(y; \hat{\mu}_0) - D(y; \hat{\mu}_A) = (2l(y; y) - 2l(\hat{\mu}_0; y)) - (2l(y; y) - 2l(\hat{\mu}_A; y)) = 2l(\hat{\mu}_A; y) - 2l(\hat{\mu}_0; y)$
+
+- This is identical to the likelihood-ratio statistic for testing $H_0$ against $H_A$. 
+- This statistic is distributed approximatelty $\chi^2_1$ independently of $\hat{\mu}$ under the assumption that the observations are i.i.d. and that $n \to \infty$ (or in the Binomial case, $m \to \infty$ is also sufficient).  
+
+
+The $\chi^2$ approximation is usually quite accurate for differences in deviances.
+
 
 **Analysis of Deviance**  
 

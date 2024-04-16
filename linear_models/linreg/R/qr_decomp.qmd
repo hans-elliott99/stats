@@ -7,7 +7,7 @@ format:
 toc: true
 ---
 
-Notes based on McCullagh and Nelder, 1983, section 3.8.2 and [Interactive Linear Algebra](https://textbooks.math.gatech.edu/ila/orthogonal-sets.html)
+Notes based on McCullagh and Nelder (N&M), 1983, section 3.8.2 and [Interactive Linear Algebra](https://textbooks.math.gatech.edu/ila/orthogonal-sets.html) (ILA).
 
 
 # Intro
@@ -45,7 +45,7 @@ We can see that the reciprocal condition number is very close to 0, which is a s
 
 ```{r}
 head(X)
-head(crossprod(X))
+crossprod(X)
 
 # reciprocal condition number (1 / condition number)
 rcond(X)
@@ -56,7 +56,7 @@ rcond(crossprod(X))
 
 # QR Decomposition
 
-The most popular method for performing least squares, and that used by R, is called QR factorization or decomposition.  
+A popular method for performing least squares, and that used by R, uses a technique called QR factorization or decomposition.  
 
 
 The aim is to decompose $X \in n \times p$ into the product of 2 matrices: the $n \times p$ orthogonal matrix $Q$ and the $p \times p$ upper right triangle matrix $R$, where $R_1$ will denote the upper right triangle of $R$.  
@@ -72,14 +72,22 @@ Then, the new mean and variance are:
   - Thus, we just need to estimate the first $p$ components of $u$.
 - $cov[U] = \sigma^2 Q^\top I Q = \sigma^2 I$  
 
-Thus, $R_1 \hat{\beta} = u_1$, which is easily solved because there is a simple inversion algorithm for triangular matrices (more on that later).  
+Thus, 
+
+$$
+R_1 \hat{\beta} = u \\
+\Rightarrow R_1 \hat{\beta} = Q^\top y \\
+\Rightarrow \hat{\beta} = R_1^{-1} Q^\top y
+$$
+
+This is easily solved because there is a simple inversion algorithm for triangular matrices (more on that later).  
 
 
 
-So far we can see that we need $Q$, to compute $u = Q^\top y$, and we need $R$ to compute $R_1 \hat{\beta} = u_1$.  
+So far we can see that we need $Q$, to compute $u = Q^\top y$, and we need $R$ to compute $R_1 \hat{\beta} = u$.  
 
 - Technically, it is not necessary to compute $Q$ explicitly because if $y$ is appended to $X$ (so the matrix has form $\{X : y\}$) the sequence of operations that takes $X$ to $R$ also transforms $\{X : y\}$ to $\{R : u\}$.  
-This means the first $p$ rows of the augmented matrix $\{R : u\}$ can be used to get the coefficients.  
+This means the first $p$ rows of the augmented matrix $\{R : u\}$ can be used to get the coefficients. (N&M, pg. 87). 
 
 There are a few methods of finding $Q$ and $R$, but the preferred is the Gram-Schmidt method, which orthogonalizes the columns of the design matrix $X$.  
 
@@ -89,7 +97,7 @@ The Gram-Schmidt procedure is presented in linear algebra as a method for obtain
 
 In the linear regression scenario, the subspace of interest is the column space of $X$ and by finding its orthogonal basis we can construct the $n \times p$ orthogonal matrix $Q$ (and as a byproduct, we will compute $R$).
 
-First, recall some key points from linear algebra:  
+First, recall some key points from linear algebra (ILA):  
 
   - In linear algebra, a basis of a vector space is a set of linearly independent vectors that spans the entire space.  
   - An orthogonal basis is such a set where the basis vectors are mutually orthogonal.  
@@ -214,6 +222,55 @@ qr_decomp <- function(X, y = NULL) {
   }
   return(list(Q = Q, R = R, beta = drop(beta)))
 }
+```
+
+
+```{r, echo=FALSE, eval = FALSE}
+#TMP
+x <- c(1,2,3,1,3,9,1,9,10,1,4,5)
+X <- matrix(x, 4, 3, byrow = TRUE)
+y <- matrix(1:4, nrow = 4)
+out <- qr_decomp(X,y)
+format(out$beta, scientific = F)
+
+
+(mod <- lm(y ~ -1 + X))
+(sigma(mod))
+
+
+# SE calculation
+# since vcov = sigma^2 * (t(X) %*% X)^(-1)
+(xtx <- diag(vcov(mod) / sigma(mod)^2))
+
+R <- out$R
+(var <- diag(solve(crossprod(out$R))))
+
+
+Rinv <- backsolve(R, diag(ncol(R)))
+diag(tcrossprod(Rinv))
+
+
+# manual backsolve
+m <- ncol(R)
+Rinv <- matrix(0, nrow(R), ncol(R))
+y <- diag(ncol(R))
+for (j in seq.int(m, 1)) {
+  Rinv[j, ] <- y[j, ]
+  if (j < m) {
+    for (i in seq.int(j+1, m)) {
+      cat("j:", j, ", i:", i, "\n")
+      cat("row:", Rinv[j, ], "\n")
+      Rinv[j, ] <- Rinv[j, ] - R[j, i] * Rinv[i, ]
+      # beta[j] <- beta[j] - R[j, i] * beta[i]
+    }
+  }
+  Rinv[j, ] <- Rinv[j, ] / R[j, j]
+  # beta[j] <- beta[j] / R[j, j]
+}
+
+Rinv
+diag(tcrossprod(Rinv))
+
 ```
 
 Simulated example:  
@@ -342,23 +399,94 @@ To compute the covariance matrix, $\sigma^2 (X^\top X)^{-1}$, we can use:
 $(X^\top X)^{-1} = ((QR)^\top QR)^{-1} = (R^\top Q^\top Q R)^{-1} = (R^\top R)^{-1}$.  
 
 ```{r}
-x <- cbind(1, rnorm(100), rnorm(100))
-y <- x[,1] + 2 * x[,2] + 3 * x[, 3] + rnorm(100, sd = 0.25)
+X <- cbind(1, rnorm(100), rnorm(100))
+Y <- x[,1] + 2 * x[,2] + 3 * x[, 3] + rnorm(100, sd = 0.25)
 
-R <- qr_decomp(x, as.matrix(y))$R
+qr <- qr_decomp(X, as.matrix(Y))
+Q <- qr$Q
+R <- qr$R
 
-(trr <- crossprod(t(R), R))
-
-# take advantage of upper right triangle matrix:
-diag(backsolve(trr, diag(ncol(trr))))
-
-# or not
-diag(solve(trr))
+rtr.inv <- solve(crossprod(R))
+diag(rtr.inv)
 
 # compare with R
 # (divide by sigma^2 to get back to (X'X)^-1)
-mod <- lm(y ~ -1 + x)
+mod <- lm(Y ~ -1 + X)
 diag(vcov(mod) / (sigma(mod)^2))
 
 ```
+However, the above example uses `solve` to do matrix inversion, and we can do better by computing the inverse in a more creative way.  
+
+The **Choleski decomposition** is another matrix decomposition method which aims to find the lower-triangular $p \times p$ matrix $L$ that satisfies:  
+$X^\top X = LL^\top$,  
+making $L$ a square root matrix of $X^\top X$.  
+
+Then, the inversion of $(X^\top X)$ is accomplished via formula:  
+$(X^\top X)^{-1} = (L^{-1})^\top L^{-1}$
+
+Since $L$ is a triangular matrix, there is a simple algorithm (forward substitution) to invert it, which makes $(L^{-1})^\top L^{-1}$ simple to calculate.  
+
+
+Now,note that:  
+$R^\top R = R^\top Q^\top Q R = X^\top X$,  
+so that $R$ is the upper triangular Choleski square-root matrix of $X^\top X$.  
+In particular, $R$ is the transpose of $L$ from the Choleski decomposition.  
+So $(L^{-1})^\top L^{-1} = ((R^\top)^{-1})^\top (R^\top)^{-1} = ((R^{-1})^\top)^\top (R^{-1})^\top = R^{-1} (R^{-1})^\top$ (using that $(A^\top)^{-1} = (A^{-1})^\top$).  
+
+Thus, to compute $(X^\top X)^{-1}$ for the standard errors we can do:  
+$$
+(X^\top X)^{-1} = R^{-1} (R^{-1})^\top
+$$
+
+
+```{r}
+Rinv.r <- backsolve(R, diag(ncol(R)))
+diag(tcrossprod(Rinv.r))
+
+#
+# or manually compute R inverse via back substitution
+m <- ncol(R)
+Rinv <- matrix(0, nrow(R), ncol(R))
+y <- diag(ncol(R))
+for (j in seq.int(m, 1)) {
+  Rinv[j, ] <- y[j, ]
+  if (j < m) {
+    for (i in seq.int(j+1, m)) {
+      Rinv[j, ] <- Rinv[j, ] - R[j, i] * Rinv[i, ]
+    }
+  }
+  Rinv[j, ] <- Rinv[j, ] / R[j, j]
+}
+
+Rinv
+diag(tcrossprod(Rinv))
+
+
+
+# # note, using the lower tri and forward solving also works, but an extra transpose
+# L <- t(R)
+# Linv <- forwardsolve(L, diag(ncol(L)))
+# diag(crossprod(Linv))
+```
+
+Note that this is essentially what R's `chol2inv` does for us:  
+
+```{r}
+diag(chol2inv(R))
+```
+
+# Fitted Values
+
+It is clear that given $X = Q R$ and $\hat{\beta} = R^{-1} Q^\top y$:  
+$$
+\hat{y} = X \beta = Q R R^{-1} Q^\top y = Q Q^\top y  
+$$
+
+```{r}
+head(drop(tcrossprod(Q) %*% Y))
+head(fitted(mod))
+```
+
+Of course, we are usually solving for $\beta$, and once we have that we could just compute $\hat{y} = X \beta$.  
+
 
