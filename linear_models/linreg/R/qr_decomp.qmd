@@ -61,7 +61,7 @@ rcond(crossprod(X))
 A popular method for performing least squares, and that used by R, uses a technique called QR factorization or decomposition.  
 
 
-The aim is to decompose $X \in n \times p$ into the product of 2 matrices: the $n \times p$ orthogonal matrix $Q$ and the $p \times p$ upper right triangle matrix $R$, where $R_1$ will denote the upper right triangle of $R$.  
+The aim is to decompose $X \in n \times p$ ($n \le p$) into the product of 2 matrices: the $n \times p$ orthogonal matrix $Q$ and the $p \times p$ upper right triangle matrix $R$, where $R_1$ will denote the upper right triangle of $R$.  
 
 We can motivate the procedure statistically:  
 If $y$ is the outcome vector with mean $X \beta$ and variance $\sigma^2 I$, we can make an orthogonal transformation to new variables $u$ defined by:  
@@ -170,10 +170,15 @@ We can think of each entry in $R$ as undoing the operations that took $X$ to $Q$
 We can also compute $R$ during the Gram Schmidt iterations if we consider what each component of the upper right triangular will be:  
 
 - Given the orthonormal basis vectors $\set{e_1, \dots, e_m}$, and original basis vectors (i.e., the columns) $\set{v_1, \dots, v_m}$ the upper right triangular matrix has rows:  
-$[v_1 \cdot e_1, v_2 \cdot e_1, \dots, v_m \cdot e_1]$  
-$[~~~~~~~~~0, v_2 \cdot e_2, \dots, v_m \cdot e_2]$  
-$~~~~~~~~~~~~~~~~~~~~~~~~\cdots$  
-$[~~~~~~~~~0, ~~~~~~~~~0, \dots, v_m \cdot e_m]$  
+
+$$
+\begin{bmatrix}
+v_1 \cdot e_1 & v_2 \cdot e_1 & \dots & v_m \cdot e_1 \\
+0 & v_2 \cdot e_2 & \dots & v_m \cdot e_2 \\
+\dots & \dots & \dots & \dots \\
+0 & 0 & \dots & v_m \cdot e_m
+\end{bmatrix}
+$$
 
 
 Note that for the diagonals, $v_i \cdot e_i = ||u_i||$
@@ -337,25 +342,25 @@ arrows(0,0, x1 = Q[1,2], y1 = Q[2,2])
 
 As explained nicely by [wikipedia](https://en.wikipedia.org/wiki/Triangular_matrix#Forward_and_back_substitution), we can compute the inverse of any triangular matrix via forward/back substitution (in this case, back substitution, which is what `backsolve` accomplishes in the `qr_decomp` function above).  
 
-For our matrix equation of form $R \beta = u$, where $R \in m \times m$ is an upper right triangular, we have a system of linear equations:  
-$R_{1,1}\beta_1 + R_{1,2}\beta_2 + \dots + R_{1,m} \beta_m = u_1$  
-$0 + R_{2,2}\beta_1 + \dots + R_{2, m} \beta_m = u_2$   
+For our matrix equation of form $R \beta = u$, where $R \in p \times p$ is an upper right triangular, we have a system of linear equations:  
+$R_{1,1}\beta_1 + R_{1,2}\beta_2 + \dots + R_{1,p} \beta_p = u_1$  
+$0 + R_{2,2}\beta_1 + \dots + R_{2, p} \beta_p = u_2$   
 
 $\cdots$  
 
-$0 + \dots + 0 + R_{m-1, m-1} \beta_{m-1} + R_{m-1, m} \beta_m = u_{m-1}$  
-$0 + \dots + 0 + 0 + R_{m,m} \beta_m = u_m$
+$0 + \dots + 0 + R_{p-1, p-1} \beta_{p-1} + R_{p-1, p} \beta_p = u_{p-1}$  
+$0 + \dots + 0 + 0 + R_{p,p} \beta_p = u_p$
 
-Thus, we can solve the last equation for $\beta_m = u_m / R_{m,m}$ and then plug this result into the previous equation:  
-$\beta_{m-1} = u_{m-1} - \frac{R_{m-1, m} \beta_m}{R_{m-1, m-1}}$
+Thus, we can solve the last equation for $\beta_p = u_p / R_{p,p}$ and then plug this result into the previous equation:  
+$\beta_{p-1} = u_{p-1} - \frac{R_{p-1, p} \beta_p}{R_{p-1, p-1}}$
 and continue on until we have solved for all of the components of $\beta$.  
 
 So going backward from the last equation (row) to the first, at each step $j$ we do:    
 
-- At step $j = m$, we compute:  
+- At step $j = p$, we compute:  
 $\beta_j = u_j / R_{j,j}$.  
-- At every other step $j < m$ (going backwards) we compute:  
-$\beta_j = u_j - \sum_{i = j + 1}^{m} \frac{R_{j,i} \beta_{i}}{R_{j,j}}$
+- At every other step $j < p$ (going backwards) we compute:  
+$\beta_j = u_j - \sum_{i = j + 1}^{p} \frac{R_{j,i} \beta_{i}}{R_{j,j}}$
   - For example, say $R \in 3 \times 3$.  
   $\beta_3 = u_3 / R_{3,3}$  
   $\beta_2 = u_2 - \sum_{i = 3}^{3} \frac{R_{2,3} \beta_3}{R_{3,3}} = u_2 - \frac{R_{2,3}\beta_3}{R_{3,3}}$  
@@ -373,12 +378,12 @@ qr <- qr_decomp(x, y)
 
 #
 # backsolve for beta
-m <- ncol(R)
-beta <- numeric(m)
-for (j in seq.int(m, 1)) {
+p <- ncol(R)
+beta <- numeric(p)
+for (j in seq.int(p, 1)) {
   beta[j] <- u[j]
-  if (j < m) {
-    for (i in seq.int(j+1, m)) {
+  if (j < p) {
+    for (i in seq.int(j+1, p)) {
       beta[j] <- beta[j] - R[j, i] * beta[i]
     }
   }
@@ -524,9 +529,9 @@ $x \leftarrow x - \alpha \gamma u$
 
 ## QR Decomposition using Householder Matrices
 
-Householder reflections and QR decomposition via Householder reflections is well explained by this short lecture series on [YouTube](https://youtube.com/playlist?list=PLxKgD50sMRvBHxvNPnGQ1kEHlO5y7mSnh&si=O3l1rEm2qttr4YFe).  
+Householder reflections and QR decomposition via Householder reflections are well explained by this short lecture series on [YouTube](https://youtube.com/playlist?list=PLxKgD50sMRvBHxvNPnGQ1kEHlO5y7mSnh&si=O3l1rEm2qttr4YFe).  
 
-Again, any $n \times p$ matrix $X$ and be written as $X = QR$ where $Q$ is an orthogonal matrix and $R$ is a $p \times p$ upper triangular.  
+Again, any $n \times p$ matrix $X$ ($n \le p$) and be written as $X = QR$ where $Q$ is an orthogonal matrix and $R$ is a $p \times p$ upper triangular.  
 
 $Q$ can be made up of the product of $p$ Householder matrices through the following steps:  
 

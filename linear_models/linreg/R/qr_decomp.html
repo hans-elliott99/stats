@@ -3243,7 +3243,7 @@ x3        1597455115 645401757068 2.716100e+14 1.175658e+17</code></pre>
 <section id="qr-decomposition" class="level1">
 <h1>QR Decomposition</h1>
 <p>A popular method for performing least squares, and that used by R, uses a technique called QR factorization or decomposition.</p>
-<p>The aim is to decompose <span class="math inline">\(X \in n \times p\)</span> into the product of 2 matrices: the <span class="math inline">\(n \times p\)</span> orthogonal matrix <span class="math inline">\(Q\)</span> and the <span class="math inline">\(p \times p\)</span> upper right triangle matrix <span class="math inline">\(R\)</span>, where <span class="math inline">\(R_1\)</span> will denote the upper right triangle of <span class="math inline">\(R\)</span>.</p>
+<p>The aim is to decompose <span class="math inline">\(X \in n \times p\)</span> (<span class="math inline">\(n \le p\)</span>) into the product of 2 matrices: the <span class="math inline">\(n \times p\)</span> orthogonal matrix <span class="math inline">\(Q\)</span> and the <span class="math inline">\(p \times p\)</span> upper right triangle matrix <span class="math inline">\(R\)</span>, where <span class="math inline">\(R_1\)</span> will denote the upper right triangle of <span class="math inline">\(R\)</span>.</p>
 <p>We can motivate the procedure statistically:<br>
 If <span class="math inline">\(y\)</span> is the outcome vector with mean <span class="math inline">\(X \beta\)</span> and variance <span class="math inline">\(\sigma^2 I\)</span>, we can make an orthogonal transformation to new variables <span class="math inline">\(u\)</span> defined by:<br>
 <span class="math inline">\(u = Q^\top y\)</span>.</p>
@@ -3354,12 +3354,16 @@ where <span class="math inline">\(||u_i|| = \sqrt{\sum_{j=1}^n (u_i)_j^2 }\)</sp
 <p>We can think of each entry in <span class="math inline">\(R\)</span> as undoing the operations that took <span class="math inline">\(X\)</span> to <span class="math inline">\(Q\)</span> (since <span class="math inline">\(X = QR\)</span>).</p>
 <p>We can also compute <span class="math inline">\(R\)</span> during the Gram Schmidt iterations if we consider what each component of the upper right triangular will be:</p>
 <ul>
-<li>Given the orthonormal basis vectors <span class="math inline">\(\set{e_1, \dots, e_m}\)</span>, and original basis vectors (i.e., the columns) <span class="math inline">\(\set{v_1, \dots, v_m}\)</span> the upper right triangular matrix has rows:<br>
-<span class="math inline">\([v_1 \cdot e_1, v_2 \cdot e_1, \dots, v_m \cdot e_1]\)</span><br>
-<span class="math inline">\([~~~~~~~~~0, v_2 \cdot e_2, \dots, v_m \cdot e_2]\)</span><br>
-<span class="math inline">\(~~~~~~~~~~~~~~~~~~~~~~~~\cdots\)</span><br>
-<span class="math inline">\([~~~~~~~~~0, ~~~~~~~~~0, \dots, v_m \cdot e_m]\)</span></li>
+<li>Given the orthonormal basis vectors <span class="math inline">\(\set{e_1, \dots, e_m}\)</span>, and original basis vectors (i.e., the columns) <span class="math inline">\(\set{v_1, \dots, v_m}\)</span> the upper right triangular matrix has rows:</li>
 </ul>
+<p><span class="math display">\[
+\begin{bmatrix}
+v_1 \cdot e_1 &amp; v_2 \cdot e_1 &amp; \dots &amp; v_m \cdot e_1 \\
+0 &amp; v_2 \cdot e_2 &amp; \dots &amp; v_m \cdot e_2 \\
+\dots &amp; \dots &amp; \dots &amp; \dots \\
+0 &amp; 0 &amp; \dots &amp; v_m \cdot e_m
+\end{bmatrix}
+\]</span></p>
 <p>Note that for the diagonals, <span class="math inline">\(v_i \cdot e_i = ||u_i||\)</span></p>
 <ul>
 <li><p>This is easy to show for the first orthogonal basis vector/first row of <span class="math inline">\(R\)</span>:<br>
@@ -3500,21 +3504,21 @@ Works fine in this case:</p>
 <section id="inverting-an-upper-right-triangular-matrix" class="level1">
 <h1>Inverting an upper right triangular matrix</h1>
 <p>As explained nicely by <a href="https://en.wikipedia.org/wiki/Triangular_matrix#Forward_and_back_substitution">wikipedia</a>, we can compute the inverse of any triangular matrix via forward/back substitution (in this case, back substitution, which is what <code>backsolve</code> accomplishes in the <code>qr_decomp</code> function above).</p>
-<p>For our matrix equation of form <span class="math inline">\(R \beta = u\)</span>, where <span class="math inline">\(R \in m \times m\)</span> is an upper right triangular, we have a system of linear equations:<br>
-<span class="math inline">\(R_{1,1}\beta_1 + R_{1,2}\beta_2 + \dots + R_{1,m} \beta_m = u_1\)</span><br>
-<span class="math inline">\(0 + R_{2,2}\beta_1 + \dots + R_{2, m} \beta_m = u_2\)</span></p>
+<p>For our matrix equation of form <span class="math inline">\(R \beta = u\)</span>, where <span class="math inline">\(R \in p \times p\)</span> is an upper right triangular, we have a system of linear equations:<br>
+<span class="math inline">\(R_{1,1}\beta_1 + R_{1,2}\beta_2 + \dots + R_{1,p} \beta_p = u_1\)</span><br>
+<span class="math inline">\(0 + R_{2,2}\beta_1 + \dots + R_{2, p} \beta_p = u_2\)</span></p>
 <p><span class="math inline">\(\cdots\)</span></p>
-<p><span class="math inline">\(0 + \dots + 0 + R_{m-1, m-1} \beta_{m-1} + R_{m-1, m} \beta_m = u_{m-1}\)</span><br>
-<span class="math inline">\(0 + \dots + 0 + 0 + R_{m,m} \beta_m = u_m\)</span></p>
-<p>Thus, we can solve the last equation for <span class="math inline">\(\beta_m = u_m / R_{m,m}\)</span> and then plug this result into the previous equation:<br>
-<span class="math inline">\(\beta_{m-1} = u_{m-1} - \frac{R_{m-1, m} \beta_m}{R_{m-1, m-1}}\)</span> and continue on until we have solved for all of the components of <span class="math inline">\(\beta\)</span>.</p>
+<p><span class="math inline">\(0 + \dots + 0 + R_{p-1, p-1} \beta_{p-1} + R_{p-1, p} \beta_p = u_{p-1}\)</span><br>
+<span class="math inline">\(0 + \dots + 0 + 0 + R_{p,p} \beta_p = u_p\)</span></p>
+<p>Thus, we can solve the last equation for <span class="math inline">\(\beta_p = u_p / R_{p,p}\)</span> and then plug this result into the previous equation:<br>
+<span class="math inline">\(\beta_{p-1} = u_{p-1} - \frac{R_{p-1, p} \beta_p}{R_{p-1, p-1}}\)</span> and continue on until we have solved for all of the components of <span class="math inline">\(\beta\)</span>.</p>
 <p>So going backward from the last equation (row) to the first, at each step <span class="math inline">\(j\)</span> we do:</p>
 <ul>
-<li>At step <span class="math inline">\(j = m\)</span>, we compute:<br>
+<li>At step <span class="math inline">\(j = p\)</span>, we compute:<br>
 <span class="math inline">\(\beta_j = u_j / R_{j,j}\)</span>.<br>
 </li>
-<li>At every other step <span class="math inline">\(j &lt; m\)</span> (going backwards) we compute:<br>
-<span class="math inline">\(\beta_j = u_j - \sum_{i = j + 1}^{m} \frac{R_{j,i} \beta_{i}}{R_{j,j}}\)</span>
+<li>At every other step <span class="math inline">\(j &lt; p\)</span> (going backwards) we compute:<br>
+<span class="math inline">\(\beta_j = u_j - \sum_{i = j + 1}^{p} \frac{R_{j,i} \beta_{i}}{R_{j,j}}\)</span>
 <ul>
 <li>For example, say <span class="math inline">\(R \in 3 \times 3\)</span>.<br>
 <span class="math inline">\(\beta_3 = u_3 / R_{3,3}\)</span><br>
@@ -3543,12 +3547,12 @@ Works fine in this case:</p>
 </div>
 <div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
 <span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="co"># backsolve for beta</span></span>
-<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="fu">ncol</span>(R)</span>
-<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> <span class="fu">numeric</span>(m)</span>
-<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (j <span class="cf">in</span> <span class="fu">seq.int</span>(m, <span class="dv">1</span>)) {</span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="fu">ncol</span>(R)</span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> <span class="fu">numeric</span>(p)</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (j <span class="cf">in</span> <span class="fu">seq.int</span>(p, <span class="dv">1</span>)) {</span>
 <span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a>  beta[j] <span class="ot">&lt;-</span> u[j]</span>
-<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (j <span class="sc">&lt;</span> m) {</span>
-<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq.int</span>(j<span class="sc">+</span><span class="dv">1</span>, m)) {</span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (j <span class="sc">&lt;</span> p) {</span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq.int</span>(j<span class="sc">+</span><span class="dv">1</span>, p)) {</span>
 <span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a>      beta[j] <span class="ot">&lt;-</span> beta[j] <span class="sc">-</span> R[j, i] <span class="sc">*</span> beta[i]</span>
 <span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a>    }</span>
 <span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>  }</span>
@@ -3699,8 +3703,8 @@ H = I - \gamma u u^\top
 </section>
 <section id="qr-decomposition-using-householder-matrices" class="level2">
 <h2 class="anchored" data-anchor-id="qr-decomposition-using-householder-matrices">QR Decomposition using Householder Matrices</h2>
-<p>Householder reflections and QR decomposition via Householder reflections is well explained by this short lecture series on <a href="https://youtube.com/playlist?list=PLxKgD50sMRvBHxvNPnGQ1kEHlO5y7mSnh&amp;si=O3l1rEm2qttr4YFe">YouTube</a>.</p>
-<p>Again, any <span class="math inline">\(n \times p\)</span> matrix <span class="math inline">\(X\)</span> and be written as <span class="math inline">\(X = QR\)</span> where <span class="math inline">\(Q\)</span> is an orthogonal matrix and <span class="math inline">\(R\)</span> is a <span class="math inline">\(p \times p\)</span> upper triangular.</p>
+<p>Householder reflections and QR decomposition via Householder reflections are well explained by this short lecture series on <a href="https://youtube.com/playlist?list=PLxKgD50sMRvBHxvNPnGQ1kEHlO5y7mSnh&amp;si=O3l1rEm2qttr4YFe">YouTube</a>.</p>
+<p>Again, any <span class="math inline">\(n \times p\)</span> matrix <span class="math inline">\(X\)</span> (<span class="math inline">\(n \le p\)</span>) and be written as <span class="math inline">\(X = QR\)</span> where <span class="math inline">\(Q\)</span> is an orthogonal matrix and <span class="math inline">\(R\)</span> is a <span class="math inline">\(p \times p\)</span> upper triangular.</p>
 <p><span class="math inline">\(Q\)</span> can be made up of the product of <span class="math inline">\(p\)</span> Householder matrices through the following steps:</p>
 <ul>
 <li>First construct the Householder matrix <span class="math inline">\(H_1\)</span> which reflects/rotates the first column of <span class="math inline">\(x\)</span> so that all of its elements except the first are zeroed.<br>
