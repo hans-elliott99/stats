@@ -7,10 +7,12 @@ format:
 toc: true
 ---
 
-Notes based on McCullagh and Nelder (N&M), 1983, section 3.8.2 and [Interactive Linear Algebra](https://textbooks.math.gatech.edu/ila/orthogonal-sets.html) (ILA).
+Notes based on McCullagh and Nelder (M&N), 1983, section 3.8.2 and [Interactive Linear Algebra](https://textbooks.math.gatech.edu/ila/orthogonal-sets.html) (ILA).  
+
+Notes on Householder reflections based on *Generative Additive Models*, Wood (2017), among other sources.  
 
 
-# Intro
+# Intro & Motivation
 
 Recall that least squares problems have a closed form solution:  
 $\hat{\beta} = (X^\top X)^{-1} X^\top Y$  
@@ -87,9 +89,9 @@ This is easily solved because there is a simple inversion algorithm for triangul
 So far we can see that we need $Q$, to compute $u = Q^\top y$, and we need $R$ to compute $R_1 \hat{\beta} = u$.  
 
 - Technically, it is not necessary to compute $Q$ explicitly because if $y$ is appended to $X$ (so the matrix has form $\{X : y\}$) the sequence of operations that takes $X$ to $R$ also transforms $\{X : y\}$ to $\{R : u\}$.  
-This means the first $p$ rows of the augmented matrix $\{R : u\}$ can be used to get the coefficients. (N&M, pg. 87). 
+This means the first $p$ rows of the augmented matrix $\{R : u\}$ can be used to get the coefficients. (M&N, pg. 87). 
 
-There are a few methods of finding $Q$ and $R$, but the preferred is the Gram-Schmidt method, which orthogonalizes the columns of the design matrix $X$.  
+There are a few methods of finding $Q$ and $R$, but a common method is the Gram-Schmidt method, which orthogonalizes the columns of the design matrix $X$.  
 
 ## Gram-Schmidt
 
@@ -488,5 +490,564 @@ head(fitted(mod))
 ```
 
 Of course, we are usually solving for $\beta$, and once we have that we could just compute $\hat{y} = X \beta$.  
+
+
+
+# Alternative Approach: Householder Reflections
+
+The Gram-Schmidt method is numerically stable, but an alternative approach to QR decomposition that utilizes Householder reflections is more efficient (because we do not need to actually form the $Q$ matrix) and gives us some other advantages (e.g., combined with pivoting we have a test for rank deficiency).  
+
+
+
+## Householder matrices
+
+Notes from General Additive Models, Simon Wood (2nd Edition), section B.5 - B.8.  
+
+Orthogonal matrices are square matrices which rotate or reflect vectors.  
+
+An important example are the Householder ("reflector") matrices.  
+
+For a non-zero vector $u$, a Householder matrix is 
+$$
+H = I - \gamma u u^\top
+$$
+where $\gamma = 2 / ||u||^2$
+
+- $H$ is symmetric.  
+- Multiplication of a vector by $H$ can be completed without explicitly storing $H$. Instead, $u$ and $\gamma$ are stored and then $H x$ is evaluated by computing:  
+$\alpha \leftarrow u^\top x$  
+$x \leftarrow x - \alpha \gamma u$  
+  - This only requires $O(n)$ operations - $n = dim(x)$ - where formation and use of $H$ is $O(n^2)$.    
+- An interesting property of $H$ is that if $x$ and $y$ are 2 non-zero vectors of same length ($||x|| = ||y||$) then the Householder matrix such that $Hx = y$ is obtained by setting $u = x - y$.  
+
+
+
+## QR Decomposition using Householder Matrices
+
+Householder reflections and QR decomposition via Householder reflections is well explained by this short lecture series on [YouTube](https://youtube.com/playlist?list=PLxKgD50sMRvBHxvNPnGQ1kEHlO5y7mSnh&si=O3l1rEm2qttr4YFe).  
+
+Again, any $n \times p$ matrix $X$ and be written as $X = QR$ where $Q$ is an orthogonal matrix and $R$ is a $p \times p$ upper triangular.  
+
+$Q$ can be made up of the product of $p$ Householder matrices through the following steps:  
+
+- First construct the Householder matrix $H_1$ which reflects/rotates the first column of $x$ so that all of its elements except the first are zeroed.  
+- Then calculate $H_2$ which will transform the second column of $X$ so that its first element is unchanged, and every element beyond the second is zeroed.  
+  - Since $H_2$ only acts on elements from the second row down, the first row is unchanged and the first column is unchanged - since elements in column 1 below the first row are already zeroed.  
+- Continue until we reach the situation where: $$H_p H_{p-1} \cdots H_1 X = R$$  
+- Hence, since $X = QR$, then $Q^\top = H_p H_{p-1} \cdots H_1$ implying that $Q = H_1 H_2 \cdots H_p$.  
+  - Thus, $Q$ can be stored as a series of $p$ householder matrix components.
+
+
+Recall from above that $Hx$ can be evaluated by computing $\alpha = u^\top x$ and then computing $x = x - \alpha \gamma u$, where $\gamma = 2 / ||u||^2 = 2 / u^\top u$.  
+Thus, we must determine how to construct $u$.  
+
+
+From [wikipedia](https://en.wikipedia.org/wiki/QR_decomposition#Using_Householder_reflections):  
+The goal of Householder reflections for QR decomposition is to find a linear transform that changes the vector $x$ into a vector of the same length which is collinear with the unit vector $e_1 = [1, 0, \dots, 0 ]^\top.$:  
+
+<img src="./householder_wiki.png" width="20%">
+
+Thus, we want $Hx = \alpha e_1$ for some constant $\alpha$.  
+
+Since $H$ is orthogonal, $||Hx|| = ||x||$ and $||\alpha e_1 || = |\alpha|||e_1|| = |\alpha|$, which implies $\alpha = \pm ||x||$.  
+The sign is selected so that is has the opposite sign of the $k$-th coordinate of $x$, where $x_k$ is to be the pivot coordinate (e.g., for the first Householder matrix $H_1$, $x_k = x_1$.)  
+
+- (This is to avoid [loss of significance](https://en.wikipedia.org/wiki/Catastrophic_cancellation), a phenomenon where "subtracting good approximations to two nearby numbers may yield a very bad approximation to the difference of the original numbers...inherent to subtraction, when the inputs are approximations themselves", such as in floating-point arithmetic).  
+
+Thus, if $x$ is the $k$-th column of $X$, we compute the $k$-th coordinate of $u$ as $u_k = x_k + sign(x_k) ||x|| e_k$ (or, to make the use of opposite sign clear, $u_k = x_k - (-sign(x_k)) ||x|| e_k$).    
+Components before and after the $k$-th remain unchanged (this is evident since $e_k$ is a vector that is 0 everywhere except for the $k$-th element, which is 1).  
+
+- In practice, we can avoid the need for multiplication by the $e_k$ vector by subsetting $X$ in each iteration so that $x'$ represents the rows $k$ through $n$ of the $k$-th column of $X$. Then, we compute $u_1 = x'_1 + sign(x'_1)||x'||$ 
+
+
+
+This [example](https://rpubs.com/aaronsc32/qr-decomposition-householder) is helpful in illustrating the process.  
+Let us calculate the decomposition of:  
+$$
+A =
+  \begin{bmatrix}
+  2 & -2 & 18 \\
+  2 & 1 & 0 \\
+  1 & 2 & 0  \\
+  \end{bmatrix}
+$$
+First we need to find a reflection that transforms the first column $x = a_1$ into $||x|| e_1 = |\alpha| e_1 = [\alpha, 0,0]^\top$.  
+
+Now $u = x + \alpha e_1$, and we know $|\alpha| = ||x||$, which in this case is $\sqrt{2^2 + 2^2 + 1^2} = 3$. (We can say $\alpha = -3$ since $x_1=3 > 0$, or simply add the $sign(x_1)\alpha e_1$ vector instead of substract).  
+So $u = [2, 2, 1]^\top + 3 [1,0,0]^\top = [5,2,1]^\top$.  
+
+Since $H_1 = I - 2 \frac{u u^\top}{u^\top u}$ we can plug in $u$ to solve:  
+$$
+H_1 =
+  \begin{bmatrix}
+  -2/3 & -2/3 & -1/3 \\
+  -2/3 & 0.733 & -0.133 \\
+  -1/3 & -0.133 & 0.933
+  \end{bmatrix}
+$$
+
+Note that:  
+
+$$
+H_1 A =
+  \begin{bmatrix}
+  -3 & 0 & -12 \\
+  0 & 1.8 & -12 \\
+  0 & 2.4 &  -6  \\
+  \end{bmatrix}
+$$
+So applying the first Householder reflection matrix to the input $A$ gets us close to our upper triangular matrix.  
+
+- Note that since $H_1 = (I - 2 \gamma u u^\top)$, then $H_1 A = (I - 2 \gamma u u^\top) A = (A - (\gamma u)^\top(A u))$, which is how we will iteratively update $A$ in the code below to produce the upper trianguar $R$, without having to explicitly compute any Householder matrices.   
+
+In R:
+```{r}
+A <- matrix(c(2,2,1, -2,1,2, 18,0,0), 3, 3)
+n <- nrow(A)
+p <- ncol(A)
+
+k <- 1
+# extract kth sub-column
+x_k <- A[k:n, k]
+#
+# calculate the norm
+nrm <- drop(sqrt(crossprod(x_k)))
+#
+# calculate reflection vector u
+u <- x_k
+u[1] <- u[1] + sign(u[1]) * nrm
+u
+#
+# calculate gamma = 2 / ||u||^2
+gamma <- 2 / drop(crossprod(u))
+#
+# calculate H for example 
+H1 <- diag(n - k + 1) - gamma * tcrossprod(u)
+H1
+#
+# update sub-matrix of A via householder reflection
+A[k:n, k:p] <- A[k:n, k:p] - tcrossprod(gamma * u, crossprod(A[k:n, k:p], u))
+A
+```
+
+Next, we can take the $(1,1)$ minor (shown below) and repeat this process.    
+$$
+A' =
+  \begin{bmatrix}
+  1.8 & -12 \\
+  2.4 & -6 \\
+  \end{bmatrix}
+$$
+The Householder vector is $u = [4.8, 2.4]^\top$ and
+the Householder matrix is the below matrix, which we pad with a diagonal to maintain dimensions:  
+$$
+H_2 = 
+  \begin{bmatrix}
+  1 & 0 & 0 \\
+  0 & -0.6 & -0.8 \\
+  0 & -0.8 & 0.6  \\
+  \end{bmatrix}
+$$
+
+
+```{r}
+k <- 2
+# extract kth sub-column
+x_k <- A[k:n, k]
+#
+# calculate the norm
+nrm <- drop(sqrt(crossprod(x_k)))
+#
+# calculate reflection vector u
+u <- x_k
+u[1] <- u[1] + sign(u[1]) * nrm
+u
+#
+# calculate gamma = 2 / ||u||^2
+gamma <- 2 / drop(crossprod(u))
+#
+# calculate H' for example 
+H2 <- diag(nrow = n, ncol = p)
+H2[k:n, k:n] <- diag(n - k + 1) - gamma * tcrossprod(u)
+H2
+#
+# update sub-matrix of A via householder reflection
+A[k:n, k:p] <- A[k:n, k:p] - tcrossprod(gamma * u, crossprod(A[k:n, k:p], u))
+A
+```
+
+Finally, we move to the last sub-matrix which is just $[6]$ at this point:  
+
+```{r}
+k <- 3
+# extract kth sub-column
+x_k <- A[k:n, k]
+#
+# calculate the norm
+nrm <- drop(sqrt(crossprod(x_k)))
+#
+# calculate reflection vector u
+u <- x_k
+u[1] <- u[1] + sign(u[1]) * nrm
+u
+#
+# calculate gamma = 2 / ||u||^2
+gamma <- 2 / drop(crossprod(u))
+#
+# calculate H' for example 
+H3 <- diag(nrow = n, ncol = p)
+H3[k:n, k:n] <- diag(n - k + 1) - gamma * tcrossprod(u)
+H3
+#
+# update sub-matrix of A via householder reflection
+A[k:n, k:p] <- A[k:n, k:p] - tcrossprod(gamma * u, crossprod(A[k:n, k:p], u))
+A
+```
+
+
+Thus we can compute the orthogonal matrix $Q$ from QR decomposition as :  
+$$
+Q = H_1^\top H_2^\top H_3^\top = 
+  \begin{bmatrix}
+  -2/3 & 2/3 & -1/3 \\
+  -2/3 & -1/3 & 2/3 \\
+  -1/3 & -2/3 & -2/3
+  \end{bmatrix}
+$$
+
+```{r}
+Q <- crossprod(H1, crossprod(H2, H3))
+Q
+```
+
+And we computed $R$ iteratively by transforming $A$ as:
+$$
+R = H_3 H_2 H_1 A
+$$
+```{r}
+R <- A[1:p, ]
+R
+```
+
+
+## Algorithm in R: QR via Householder Reflections
+
+Here we will use Householder reflections to iteratively transform the input matrix into $R$. We will also store $u$ and $\gamma$, the components of each Householder matrix $H_k$, to be used for other computations to demonstrate that we never need to explicitly compute $Q$.  
+
+```{r}
+# sim some data
+x <- cbind(1, rnorm(100), rnorm(100))
+y <- x[,1] + 2 * x[,2] + 3 * x[, 3] + rnorm(100, sd = 0.25)
+mod_test <- lm(y ~ -1 + x)
+
+
+#
+# QR DECOMP BY HOUSEHOLDER REFLECTIONS
+#
+A <- x
+n <- nrow(A)
+p <- ncol(A)
+
+us <- matrix(0, n, p)
+gammas <- numeric(p)
+for (k in 1:p) {
+  #
+  # compute components of Householder matrix H_k
+  #
+  x_k   <- A[k:n, k]                  # k-th sub-column
+  nrm   <- drop(sqrt(crossprod(x_k))) # euclidean norm
+  u     <- x_k                        # reflection vector
+  u[1]  <- u[1] + sign(u[1]) * nrm
+  gamma <- 2 / drop(crossprod(u))     # gamma = 2 / ||u||^2
+  #
+  # update sub-matrix of A via householder reflection
+  #
+  A[k:n, k:p] <- A[k:n, k:p] - tcrossprod(gamma * u, crossprod(A[k:n,k:p], u))
+  #
+  # store components of H_k
+  #
+  us[k:n, k] <- u
+  gammas[k] <- gamma
+}
+#
+# finalize upper triangular R
+R <- A[1:p, ]
+R[lower.tri(R)] <- 0 # elements that are essentially 0 are zeroed
+R
+
+#
+# can compute Q (if you wanted to explicitly obtain Q)
+#  via Householder reflections
+Q <- diag(n)
+for (k in 1:p) {
+  Q[,k:n] <- Q[,k:n] - tcrossprod(Q[,k:n,drop=FALSE] %*% us[k:n, k], gammas[k] * us[k:n, k])
+}
+Q <- Q[, 1:p]
+
+
+all.equal(R, qr.R(qr(x)))
+all.equal(Q, qr.Q(qr(x)))
+```
+
+
+Now that we have obtained $R$ and have the components to perform calculations that require $Q$, we can see how to use these components to finish our least squares estimation.  
+
+We want to compute $Q^\top y$ so we can solve $R \beta = Q^\top y$ for $\beta$.  
+
+We saw that $Q^\top = H_p H_{p-1} \cdots H_1$, and we know that we can compute any $H_k x$ using just $u$ and $\gamma$ by setting $\alpha = u_k^\top x$ and then updating $x = x - \alpha  \gamma_k u_k$:  
+
+```{r}
+#
+# next we want to compute Q^\top y so we can solve R beta = Q^\top y
+z_test <- drop(crossprod(Q, y))
+              
+#
+# But for Householder matrices, can compute Q^\top y without using Q:
+# since Q = H_1 ... H_p, and Q^\top = H_p ... H_1
+# and we can compute H_k y using just u and gamma
+z <- y
+for (k in 1:p) {
+  alpha <- drop(crossprod(us[k:n, k], z[k:n]))
+  z[k:n] <- z[k:n] - alpha * gammas[k] * us[k:n, k]
+}
+(z <- z[1:p])
+
+all.equal(z_test, z)
+```
+
+Now that we have computed $R$ and $Q^\top y$, we can solve for $\hat{\beta} = R^{-1} (Q^\top y)$, which as we saw above is simple thanks to the back-substitution inversion algorithm for an upper right triangular matrix (manual example above).   
+
+```{r}
+(beta <- backsolve(R, z))
+
+all.equal(beta, unname(coef(mod_test)))
+```
+
+For standard errors, we do not need $Q$ since we saw that $(X^\top X)^{-1} = (R^\top R)^{-1} = (R^{-1})(R^{-1})^\top$ (the last formulation is useful because, again, it is convenient to invert an upper-right triangular matrix).  
+
+```{r}
+Rinv <- backsolve(R, diag(nrow(R))) # invert upper right
+(XtXinv <- tcrossprod(Rinv))
+
+all.equal(XtXinv,
+          unname(vcov(mod_test) / sigma(mod_test)^2))
+```
+
+To compute fitted values we could compute $Q Q^\top y$ as we saw above, but then we have to construct $Q$. At this point, it is faster to simply compute $\hat{y} = X \hat{\beta}$.  
+
+```{r}
+all.equal(x %*% beta,
+          as.matrix(fitted(mod_test)),
+          check.attributes = FALSE)
+```
+
+
+
+
+Note: more efficient way to store $u$ vectors since they get smaller with each iteration?  
+
+- https://math.stackexchange.com/questions/231557/calculating-number-of-non-zero-elements-in-a-lower-triangular-matrix  
+-  https://stackoverflow.com/questions/27380024/how-to-efficiently-store-a-triangular-matrix-in-memory  
+
+
+## Pivoting
+
+Wood (section B.8, pg. 423) explains that *pivoting* - or reordering the columns of the input matrix - can improve the stability of computations involving QR.  
+
+Pivoting is performed iteratively as the QR decomposition progresses.  
+
+- The column with the largest Euclidean norm is first swapped into the first column.  
+- After the first Householder reflection has been applied, the norms of the remaining columns - below the first row - are computed and the column with the largest norm is swapped into the second column.  
+- The next Householder reflection is applied, and then the norms of the remaining columns below the second row are computed, and so on...  
+
+
+A consequence of this approach is that any rank-deficiency is manifested as a trailing zero block of the triangular factor ($R$), giving a way to test for rank deficiency.  
+
+
+
+```{r}
+qr_householder <- function(A, y = NULL,
+                           pivot = TRUE,
+                           # (same default as all.equal.numeric)
+                           tol = sqrt(.Machine$double.eps)
+                           ) {
+  #
+  # QR DECOMP BY HOUSEHOLDER REFLECTIONS
+  #
+  n <- nrow(A)
+  p <- ncol(A)
+
+  us <- matrix(0, n, p) # store u_k vector for H_k 
+  gammas <- numeric(p)  # store gamma_k scalar for H_k
+  col_order <- 1:p
+  for (k in 1:p) {
+    #
+    # compute column norms and pivot
+    #
+    if (pivot) {
+      norms <- apply(A[k:n, col_order][, k:p, drop = FALSE],
+                     MARGIN = 2,
+                     norm, type = "2") # euclidean norm
+      piv <- which.max(norms)
+      ## swap column order
+      tmp <- col_order[k]
+      col_order[k] <- col_order[k:p][piv]
+      col_order[k:p][piv] <- tmp
+      nrm <- norms[piv]
+    }
+    #
+    # compute components of Householder matrix H_k
+    #
+    x_k   <- A[k:n, col_order][, k]     # k-th sub-column with largest norm
+    nrm   <- if (pivot) norms[piv] else drop(sqrt(crossprod(x))) # euclid norm
+    u     <- x_k                        # reflection vector
+    u[1]  <- u[1] + sign(u[1]) * nrm
+    gamma <- 2 / drop(crossprod(u))     # gamma = 2 / ||u||^2
+    #
+    # update sub-matrix of A via householder reflection
+    #
+    Asub <- A[k:n, col_order][, k:p]
+    A[k:n, col_order][, k:p] <- Asub - tcrossprod(gamma * u, crossprod(Asub, u))
+    #
+    # store components of H_k
+    #
+    us[k:n, k] <- u
+    gammas[k] <- gamma
+  }
+  #
+  # finalize upper triangular R
+  R <- A[1:p, col_order]
+  R[lower.tri(R)] <- 0 # lower tri elements that are essentially 0 are zeroed
+  #
+  # check for linear dependence
+  sing <- NULL
+  if (pivot) {
+    rr <- which(abs(diag(R)) < tol)
+    (rank <- p - length(rr))
+    if (rank < p) {
+      warning("Singular fit detected.")
+      sing <- TRUE
+    } else {
+      sing <- FALSE
+    }
+    if (rank == 0)
+      stop("Input matrix is of rank 0.")
+  }
+  beta <- NULL
+  if (!is.null(y)) {
+    #
+    # compute Q'y
+    z <- y
+    for (k in 1:rank) {
+      alpha <- drop(crossprod(us[k:n, k], z[k:n]))
+      z[k:n] <- z[k:n] - alpha * gammas[k] * us[k:n, k]
+    }
+    z <- z[1:rank]
+    #
+    # backsolve for beta = (R)^-1 Q' y
+    beta <- backsolve(R[1:rank, 1:rank], z)
+    # TODO vectorize
+    coefs <- rep_len(NA, p)
+    for (i in seq(p)) coefs[col_order[i]] <- beta[i]
+  }
+  return(list(
+    R = R,
+    us = us,
+    gammas = gammas,
+    coefficients = coefs,
+    rank = rank,
+    pivot = col_order,
+    pivoted = pivot
+  ))
+}
+
+```
+
+
+First lets test the function on a full rank matrix:  
+
+```{r}
+x <- cbind(1, rnorm(100), rnorm(100))
+y <- x[,1] + 2 * x[,2] + 3 * x[, 3] + rnorm(100, sd = 0.25)
+mod_test <- lm(y ~ -1 + x)
+
+hqr <- qr_householder(x, y)
+
+all.equal(hqr$R,
+          qr.R(qr(x, LAPACK = TRUE))) # LAPACK routine does pivot
+
+# note - only LINPACK (ie, when LAPACK = FALSE), checks for linear dependencies
+all.equal(hqr$rank,
+          qr(x)$rank)
+
+all.equal(hqr$coefficients,
+          unname(coef(mod_test)))
+
+setNames(hqr$coefficients,
+         paste0("X", seq(ncol(x))))
+```
+
+
+Now test the function on a rank deficient matrix, where the third covariate is a linear combination of the second covariate.  
+
+```{r}
+# sim some data - with rank deficiency
+x <- cbind(1, rnorm(100))
+x <- cbind(x, x[, 2] * 2) # x3 = 2 * x2
+y <- x[,1] +  x[,2] + x[, 3] + rnorm(100, sd = 0.25)
+
+# error expected:
+# calculating a regression in R will error if we don't allow for singular fits 
+try(
+  lm(y ~ -1 + x, singular.ok = FALSE)
+)
+
+# error expected:
+# trying to solve by brute force, we see it fails since the matrix is not invertible!
+try(
+  crossprod(solve(crossprod(x)), crossprod(x, y)) # b = (X'X)^-1 X'y
+)
+
+# by default lm will not error but will essentially drop the third covariate
+mod_test <- lm(y ~ -1 + x)
+coef(mod_test)
+```
+
+
+In the function, we test for a singular fit by determining if any of the diagonals are essentially 0.
+
+```{r}
+hqr <- qr_householder(x, y)
+
+# last diagonal element is essentially 0
+hqr$R
+```
+
+
+Note that the coefficients differ slightly from the output of `lm`. Specifically, while the intercept is the same, the estimated slope is different - R's function estimated a slope for X2 and our function estimated a slope for X3. We produced an estimate for X3 instead of X2 due to the results of our particular pivoting implementation.  
+It isn't of huge importance, since a singular fit implies that there are an infinite number of equally good solutions to this linear system.  
+
+```{r}
+coef(mod_test)
+
+setNames(hqr$coefficients,
+         paste0("X", seq(ncol(x))))
+```
+
+
+
+(Notice that the coefficient R estimates for X2 is exactly twice as big as the coefficient we estimate for X3, and in our simulation X3 = 2 * X2, so we would expect its coefficient to be exactly half the size.)  
+```{r}
+##
+unname(coef(mod_test)[2] / hqr$coefficients[3])
+```
+
+
+If we repeat the regression but remove one of the collinear covariates, we can get back to a unique solution.  
+```{r}
+qr_householder(x[, -2], y)$coeff
+
+qr_householder(x[, -3], y)$coeff
+```
 
 

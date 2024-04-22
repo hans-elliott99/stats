@@ -3136,7 +3136,7 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#intro" id="toc-intro" class="nav-link active" data-scroll-target="#intro">Intro</a></li>
+  <li><a href="#intro-motivation" id="toc-intro-motivation" class="nav-link active" data-scroll-target="#intro-motivation">Intro &amp; Motivation</a></li>
   <li><a href="#qr-decomposition" id="toc-qr-decomposition" class="nav-link" data-scroll-target="#qr-decomposition">QR Decomposition</a>
   <ul class="collapse">
   <li><a href="#gram-schmidt" id="toc-gram-schmidt" class="nav-link" data-scroll-target="#gram-schmidt">Gram-Schmidt</a></li>
@@ -3147,6 +3147,13 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
   <li><a href="#inverting-an-upper-right-triangular-matrix" id="toc-inverting-an-upper-right-triangular-matrix" class="nav-link" data-scroll-target="#inverting-an-upper-right-triangular-matrix">Inverting an upper right triangular matrix</a></li>
   <li><a href="#standard-errors" id="toc-standard-errors" class="nav-link" data-scroll-target="#standard-errors">Standard Errors</a></li>
   <li><a href="#fitted-values" id="toc-fitted-values" class="nav-link" data-scroll-target="#fitted-values">Fitted Values</a></li>
+  <li><a href="#alternative-approach-householder-reflections" id="toc-alternative-approach-householder-reflections" class="nav-link" data-scroll-target="#alternative-approach-householder-reflections">Alternative Approach: Householder Reflections</a>
+  <ul class="collapse">
+  <li><a href="#householder-matrices" id="toc-householder-matrices" class="nav-link" data-scroll-target="#householder-matrices">Householder matrices</a></li>
+  <li><a href="#qr-decomposition-using-householder-matrices" id="toc-qr-decomposition-using-householder-matrices" class="nav-link" data-scroll-target="#qr-decomposition-using-householder-matrices">QR Decomposition using Householder Matrices</a></li>
+  <li><a href="#algorithm-in-r-qr-via-householder-reflections" id="toc-algorithm-in-r-qr-via-householder-reflections" class="nav-link" data-scroll-target="#algorithm-in-r-qr-via-householder-reflections">Algorithm in R: QR via Householder Reflections</a></li>
+  <li><a href="#pivoting" id="toc-pivoting" class="nav-link" data-scroll-target="#pivoting">Pivoting</a></li>
+  </ul></li>
   </ul>
 </nav>
 </div>
@@ -3175,9 +3182,10 @@ return!"\t\n\x0B\f\r                　\u2028\u2029
 
 </header>
 
-<p>Notes based on McCullagh and Nelder (N&amp;M), 1983, section 3.8.2 and <a href="https://textbooks.math.gatech.edu/ila/orthogonal-sets.html">Interactive Linear Algebra</a> (ILA).</p>
-<section id="intro" class="level1">
-<h1>Intro</h1>
+<p>Notes based on McCullagh and Nelder (M&amp;N), 1983, section 3.8.2 and <a href="https://textbooks.math.gatech.edu/ila/orthogonal-sets.html">Interactive Linear Algebra</a> (ILA).</p>
+<p>Notes on Householder reflections based on <em>Generative Additive Models</em>, Wood (2017), among other sources.</p>
+<section id="intro-motivation" class="level1">
+<h1>Intro &amp; Motivation</h1>
 <p>Recall that least squares problems have a closed form solution:<br>
 <span class="math inline">\(\hat{\beta} = (X^\top X)^{-1} X^\top Y\)</span><br>
 as long as <span class="math inline">\(X^\top X\)</span> is invertible.</p>
@@ -3259,9 +3267,9 @@ R_1 \hat{\beta} = u \\
 <p>So far we can see that we need <span class="math inline">\(Q\)</span>, to compute <span class="math inline">\(u = Q^\top y\)</span>, and we need <span class="math inline">\(R\)</span> to compute <span class="math inline">\(R_1 \hat{\beta} = u\)</span>.</p>
 <ul>
 <li>Technically, it is not necessary to compute <span class="math inline">\(Q\)</span> explicitly because if <span class="math inline">\(y\)</span> is appended to <span class="math inline">\(X\)</span> (so the matrix has form <span class="math inline">\(\{X : y\}\)</span>) the sequence of operations that takes <span class="math inline">\(X\)</span> to <span class="math inline">\(R\)</span> also transforms <span class="math inline">\(\{X : y\}\)</span> to <span class="math inline">\(\{R : u\}\)</span>.<br>
-This means the first <span class="math inline">\(p\)</span> rows of the augmented matrix <span class="math inline">\(\{R : u\}\)</span> can be used to get the coefficients. (N&amp;M, pg. 87).</li>
+This means the first <span class="math inline">\(p\)</span> rows of the augmented matrix <span class="math inline">\(\{R : u\}\)</span> can be used to get the coefficients. (M&amp;N, pg. 87).</li>
 </ul>
-<p>There are a few methods of finding <span class="math inline">\(Q\)</span> and <span class="math inline">\(R\)</span>, but the preferred is the Gram-Schmidt method, which orthogonalizes the columns of the design matrix <span class="math inline">\(X\)</span>.</p>
+<p>There are a few methods of finding <span class="math inline">\(Q\)</span> and <span class="math inline">\(R\)</span>, but a common method is the Gram-Schmidt method, which orthogonalizes the columns of the design matrix <span class="math inline">\(X\)</span>.</p>
 <section id="gram-schmidt" class="level2">
 <h2 class="anchored" data-anchor-id="gram-schmidt">Gram-Schmidt</h2>
 <p>The Gram-Schmidt procedure is presented in linear algebra as a method for obtaining an orthogonal basis for a subspace, which makes computations easier, particularly when they involve projections (recall that linear regression involves the orthogonal projection of <span class="math inline">\(Y\)</span> onto the column space of <span class="math inline">\(X\)</span>).</p>
@@ -3664,6 +3672,633 @@ So <span class="math inline">\((L^{-1})^\top L^{-1} = ((R^\top)^{-1})^\top (R^\t
 </div>
 </div>
 <p>Of course, we are usually solving for <span class="math inline">\(\beta\)</span>, and once we have that we could just compute <span class="math inline">\(\hat{y} = X \beta\)</span>.</p>
+</section>
+<section id="alternative-approach-householder-reflections" class="level1">
+<h1>Alternative Approach: Householder Reflections</h1>
+<p>The Gram-Schmidt method is numerically stable, but an alternative approach to QR decomposition that utilizes Householder reflections is more efficient (because we do not need to actually form the <span class="math inline">\(Q\)</span> matrix) and gives us some other advantages (e.g., combined with pivoting we have a test for rank deficiency).</p>
+<section id="householder-matrices" class="level2">
+<h2 class="anchored" data-anchor-id="householder-matrices">Householder matrices</h2>
+<p>Notes from General Additive Models, Simon Wood (2nd Edition), section B.5 - B.8.</p>
+<p>Orthogonal matrices are square matrices which rotate or reflect vectors.</p>
+<p>An important example are the Householder (“reflector”) matrices.</p>
+<p>For a non-zero vector <span class="math inline">\(u\)</span>, a Householder matrix is <span class="math display">\[
+H = I - \gamma u u^\top
+\]</span> where <span class="math inline">\(\gamma = 2 / ||u||^2\)</span></p>
+<ul>
+<li><span class="math inline">\(H\)</span> is symmetric.<br>
+</li>
+<li>Multiplication of a vector by <span class="math inline">\(H\)</span> can be completed without explicitly storing <span class="math inline">\(H\)</span>. Instead, <span class="math inline">\(u\)</span> and <span class="math inline">\(\gamma\)</span> are stored and then <span class="math inline">\(H x\)</span> is evaluated by computing:<br>
+<span class="math inline">\(\alpha \leftarrow u^\top x\)</span><br>
+<span class="math inline">\(x \leftarrow x - \alpha \gamma u\)</span>
+<ul>
+<li>This only requires <span class="math inline">\(O(n)\)</span> operations - <span class="math inline">\(n = dim(x)\)</span> - where formation and use of <span class="math inline">\(H\)</span> is <span class="math inline">\(O(n^2)\)</span>.<br>
+</li>
+</ul></li>
+<li>An interesting property of <span class="math inline">\(H\)</span> is that if <span class="math inline">\(x\)</span> and <span class="math inline">\(y\)</span> are 2 non-zero vectors of same length (<span class="math inline">\(||x|| = ||y||\)</span>) then the Householder matrix such that <span class="math inline">\(Hx = y\)</span> is obtained by setting <span class="math inline">\(u = x - y\)</span>.</li>
+</ul>
+</section>
+<section id="qr-decomposition-using-householder-matrices" class="level2">
+<h2 class="anchored" data-anchor-id="qr-decomposition-using-householder-matrices">QR Decomposition using Householder Matrices</h2>
+<p>Householder reflections and QR decomposition via Householder reflections is well explained by this short lecture series on <a href="https://youtube.com/playlist?list=PLxKgD50sMRvBHxvNPnGQ1kEHlO5y7mSnh&amp;si=O3l1rEm2qttr4YFe">YouTube</a>.</p>
+<p>Again, any <span class="math inline">\(n \times p\)</span> matrix <span class="math inline">\(X\)</span> and be written as <span class="math inline">\(X = QR\)</span> where <span class="math inline">\(Q\)</span> is an orthogonal matrix and <span class="math inline">\(R\)</span> is a <span class="math inline">\(p \times p\)</span> upper triangular.</p>
+<p><span class="math inline">\(Q\)</span> can be made up of the product of <span class="math inline">\(p\)</span> Householder matrices through the following steps:</p>
+<ul>
+<li>First construct the Householder matrix <span class="math inline">\(H_1\)</span> which reflects/rotates the first column of <span class="math inline">\(x\)</span> so that all of its elements except the first are zeroed.<br>
+</li>
+<li>Then calculate <span class="math inline">\(H_2\)</span> which will transform the second column of <span class="math inline">\(X\)</span> so that its first element is unchanged, and every element beyond the second is zeroed.
+<ul>
+<li>Since <span class="math inline">\(H_2\)</span> only acts on elements from the second row down, the first row is unchanged and the first column is unchanged - since elements in column 1 below the first row are already zeroed.<br>
+</li>
+</ul></li>
+<li>Continue until we reach the situation where: <span class="math display">\[H_p H_{p-1} \cdots H_1 X = R\]</span><br>
+</li>
+<li>Hence, since <span class="math inline">\(X = QR\)</span>, then <span class="math inline">\(Q^\top = H_p H_{p-1} \cdots H_1\)</span> implying that <span class="math inline">\(Q = H_1 H_2 \cdots H_p\)</span>.
+<ul>
+<li>Thus, <span class="math inline">\(Q\)</span> can be stored as a series of <span class="math inline">\(p\)</span> householder matrix components.</li>
+</ul></li>
+</ul>
+<p>Recall from above that <span class="math inline">\(Hx\)</span> can be evaluated by computing <span class="math inline">\(\alpha = u^\top x\)</span> and then computing <span class="math inline">\(x = x - \alpha \gamma u\)</span>, where <span class="math inline">\(\gamma = 2 / ||u||^2 = 2 / u^\top u\)</span>.<br>
+Thus, we must determine how to construct <span class="math inline">\(u\)</span>.</p>
+<p>From <a href="https://en.wikipedia.org/wiki/QR_decomposition#Using_Householder_reflections">wikipedia</a>:<br>
+The goal of Householder reflections for QR decomposition is to find a linear transform that changes the vector <span class="math inline">\(x\)</span> into a vector of the same length which is collinear with the unit vector <span class="math inline">\(e_1 = [1, 0, \dots, 0 ]^\top.\)</span>:</p>
+<p><img src="data:image/png;base64,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" width="20%"></p>
+<p>Thus, we want <span class="math inline">\(Hx = \alpha e_1\)</span> for some constant <span class="math inline">\(\alpha\)</span>.</p>
+<p>Since <span class="math inline">\(H\)</span> is orthogonal, <span class="math inline">\(||Hx|| = ||x||\)</span> and <span class="math inline">\(||\alpha e_1 || = |\alpha|||e_1|| = |\alpha|\)</span>, which implies <span class="math inline">\(\alpha = \pm ||x||\)</span>.<br>
+The sign is selected so that is has the opposite sign of the <span class="math inline">\(k\)</span>-th coordinate of <span class="math inline">\(x\)</span>, where <span class="math inline">\(x_k\)</span> is to be the pivot coordinate (e.g., for the first Householder matrix <span class="math inline">\(H_1\)</span>, <span class="math inline">\(x_k = x_1\)</span>.)</p>
+<ul>
+<li>(This is to avoid <a href="https://en.wikipedia.org/wiki/Catastrophic_cancellation">loss of significance</a>, a phenomenon where “subtracting good approximations to two nearby numbers may yield a very bad approximation to the difference of the original numbers…inherent to subtraction, when the inputs are approximations themselves”, such as in floating-point arithmetic).</li>
+</ul>
+<p>Thus, if <span class="math inline">\(x\)</span> is the <span class="math inline">\(k\)</span>-th column of <span class="math inline">\(X\)</span>, we compute the <span class="math inline">\(k\)</span>-th coordinate of <span class="math inline">\(u\)</span> as <span class="math inline">\(u_k = x_k + sign(x_k) ||x|| e_k\)</span> (or, to make the use of opposite sign clear, <span class="math inline">\(u_k = x_k - (-sign(x_k)) ||x|| e_k\)</span>).<br>
+Components before and after the <span class="math inline">\(k\)</span>-th remain unchanged (this is evident since <span class="math inline">\(e_k\)</span> is a vector that is 0 everywhere except for the <span class="math inline">\(k\)</span>-th element, which is 1).</p>
+<ul>
+<li>In practice, we can avoid the need for multiplication by the <span class="math inline">\(e_k\)</span> vector by subsetting <span class="math inline">\(X\)</span> in each iteration so that <span class="math inline">\(x&#39;\)</span> represents the rows <span class="math inline">\(k\)</span> through <span class="math inline">\(n\)</span> of the <span class="math inline">\(k\)</span>-th column of <span class="math inline">\(X\)</span>. Then, we compute <span class="math inline">\(u_1 = x&#39;_1 + sign(x&#39;_1)||x&#39;||\)</span></li>
+</ul>
+<p>This <a href="https://rpubs.com/aaronsc32/qr-decomposition-householder">example</a> is helpful in illustrating the process.<br>
+Let us calculate the decomposition of:<br>
+<span class="math display">\[
+A =
+  \begin{bmatrix}
+  2 &amp; -2 &amp; 18 \\
+  2 &amp; 1 &amp; 0 \\
+  1 &amp; 2 &amp; 0  \\
+  \end{bmatrix}
+\]</span> First we need to find a reflection that transforms the first column <span class="math inline">\(x = a_1\)</span> into <span class="math inline">\(||x|| e_1 = |\alpha| e_1 = [\alpha, 0,0]^\top\)</span>.</p>
+<p>Now <span class="math inline">\(u = x + \alpha e_1\)</span>, and we know <span class="math inline">\(|\alpha| = ||x||\)</span>, which in this case is <span class="math inline">\(\sqrt{2^2 + 2^2 + 1^2} = 3\)</span>. (We can say <span class="math inline">\(\alpha = -3\)</span> since <span class="math inline">\(x_1=3 &gt; 0\)</span>, or simply add the <span class="math inline">\(sign(x_1)\alpha e_1\)</span> vector instead of substract).<br>
+So <span class="math inline">\(u = [2, 2, 1]^\top + 3 [1,0,0]^\top = [5,2,1]^\top\)</span>.</p>
+<p>Since <span class="math inline">\(H_1 = I - 2 \frac{u u^\top}{u^\top u}\)</span> we can plug in <span class="math inline">\(u\)</span> to solve:<br>
+<span class="math display">\[
+H_1 =
+  \begin{bmatrix}
+  -2/3 &amp; -2/3 &amp; -1/3 \\
+  -2/3 &amp; 0.733 &amp; -0.133 \\
+  -1/3 &amp; -0.133 &amp; 0.933
+  \end{bmatrix}
+\]</span></p>
+<p>Note that:</p>
+<p><span class="math display">\[
+H_1 A =
+  \begin{bmatrix}
+  -3 &amp; 0 &amp; -12 \\
+  0 &amp; 1.8 &amp; -12 \\
+  0 &amp; 2.4 &amp;  -6  \\
+  \end{bmatrix}
+\]</span> So applying the first Householder reflection matrix to the input <span class="math inline">\(A\)</span> gets us close to our upper triangular matrix.</p>
+<ul>
+<li>Note that since <span class="math inline">\(H_1 = (I - 2 \gamma u u^\top)\)</span>, then <span class="math inline">\(H_1 A = (I - 2 \gamma u u^\top) A = (A - (\gamma u)^\top(A u))\)</span>, which is how we will iteratively update <span class="math inline">\(A\)</span> in the code below to produce the upper trianguar <span class="math inline">\(R\)</span>, without having to explicitly compute any Householder matrices.</li>
+</ul>
+<p>In R:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a>A <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">2</span>,<span class="dv">1</span>, <span class="sc">-</span><span class="dv">2</span>,<span class="dv">1</span>,<span class="dv">2</span>, <span class="dv">18</span>,<span class="dv">0</span>,<span class="dv">0</span>), <span class="dv">3</span>, <span class="dv">3</span>)</span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">nrow</span>(A)</span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="fu">ncol</span>(A)</span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a><span class="co"># extract kth sub-column</span></span>
+<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a>x_k <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, k]</span>
+<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate the norm</span></span>
+<span id="cb56-10"><a href="#cb56-10" aria-hidden="true" tabindex="-1"></a>nrm <span class="ot">&lt;-</span> <span class="fu">drop</span>(<span class="fu">sqrt</span>(<span class="fu">crossprod</span>(x_k)))</span>
+<span id="cb56-11"><a href="#cb56-11" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb56-12"><a href="#cb56-12" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate reflection vector u</span></span>
+<span id="cb56-13"><a href="#cb56-13" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> x_k</span>
+<span id="cb56-14"><a href="#cb56-14" aria-hidden="true" tabindex="-1"></a>u[<span class="dv">1</span>] <span class="ot">&lt;-</span> u[<span class="dv">1</span>] <span class="sc">+</span> <span class="fu">sign</span>(u[<span class="dv">1</span>]) <span class="sc">*</span> nrm</span>
+<span id="cb56-15"><a href="#cb56-15" aria-hidden="true" tabindex="-1"></a>u</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 5 2 1</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate gamma = 2 / ||u||^2</span></span>
+<span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a>gamma <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">/</span> <span class="fu">drop</span>(<span class="fu">crossprod</span>(u))</span>
+<span id="cb58-4"><a href="#cb58-4" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb58-5"><a href="#cb58-5" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate H for example </span></span>
+<span id="cb58-6"><a href="#cb58-6" aria-hidden="true" tabindex="-1"></a>H1 <span class="ot">&lt;-</span> <span class="fu">diag</span>(n <span class="sc">-</span> k <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">-</span> gamma <span class="sc">*</span> <span class="fu">tcrossprod</span>(u)</span>
+<span id="cb58-7"><a href="#cb58-7" aria-hidden="true" tabindex="-1"></a>H1</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           [,1]       [,2]       [,3]
+[1,] -0.6666667 -0.6666667 -0.3333333
+[2,] -0.6666667  0.7333333 -0.1333333
+[3,] -0.3333333 -0.1333333  0.9333333</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a><span class="co"># update sub-matrix of A via householder reflection</span></span>
+<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a>A[k<span class="sc">:</span>n, k<span class="sc">:</span>p] <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, k<span class="sc">:</span>p] <span class="sc">-</span> <span class="fu">tcrossprod</span>(gamma <span class="sc">*</span> u, <span class="fu">crossprod</span>(A[k<span class="sc">:</span>n, k<span class="sc">:</span>p], u))</span>
+<span id="cb60-4"><a href="#cb60-4" aria-hidden="true" tabindex="-1"></a>A</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     [,1] [,2] [,3]
+[1,]   -3  0.0  -12
+[2,]    0  1.8  -12
+[3,]    0  2.4   -6</code></pre>
+</div>
+</div>
+<p>Next, we can take the <span class="math inline">\((1,1)\)</span> minor (shown below) and repeat this process.<br>
+<span class="math display">\[
+A&#39; =
+  \begin{bmatrix}
+  1.8 &amp; -12 \\
+  2.4 &amp; -6 \\
+  \end{bmatrix}
+\]</span> The Householder vector is <span class="math inline">\(u = [4.8, 2.4]^\top\)</span> and the Householder matrix is the below matrix, which we pad with a diagonal to maintain dimensions:<br>
+<span class="math display">\[
+H_2 =
+  \begin{bmatrix}
+  1 &amp; 0 &amp; 0 \\
+  0 &amp; -0.6 &amp; -0.8 \\
+  0 &amp; -0.8 &amp; 0.6  \\
+  \end{bmatrix}
+\]</span></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb62"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="dv">2</span></span>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a><span class="co"># extract kth sub-column</span></span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a>x_k <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, k]</span>
+<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate the norm</span></span>
+<span id="cb62-6"><a href="#cb62-6" aria-hidden="true" tabindex="-1"></a>nrm <span class="ot">&lt;-</span> <span class="fu">drop</span>(<span class="fu">sqrt</span>(<span class="fu">crossprod</span>(x_k)))</span>
+<span id="cb62-7"><a href="#cb62-7" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb62-8"><a href="#cb62-8" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate reflection vector u</span></span>
+<span id="cb62-9"><a href="#cb62-9" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> x_k</span>
+<span id="cb62-10"><a href="#cb62-10" aria-hidden="true" tabindex="-1"></a>u[<span class="dv">1</span>] <span class="ot">&lt;-</span> u[<span class="dv">1</span>] <span class="sc">+</span> <span class="fu">sign</span>(u[<span class="dv">1</span>]) <span class="sc">*</span> nrm</span>
+<span id="cb62-11"><a href="#cb62-11" aria-hidden="true" tabindex="-1"></a>u</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 4.8 2.4</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb64"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate gamma = 2 / ||u||^2</span></span>
+<span id="cb64-3"><a href="#cb64-3" aria-hidden="true" tabindex="-1"></a>gamma <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">/</span> <span class="fu">drop</span>(<span class="fu">crossprod</span>(u))</span>
+<span id="cb64-4"><a href="#cb64-4" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb64-5"><a href="#cb64-5" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate H&#39; for example </span></span>
+<span id="cb64-6"><a href="#cb64-6" aria-hidden="true" tabindex="-1"></a>H2 <span class="ot">&lt;-</span> <span class="fu">diag</span>(<span class="at">nrow =</span> n, <span class="at">ncol =</span> p)</span>
+<span id="cb64-7"><a href="#cb64-7" aria-hidden="true" tabindex="-1"></a>H2[k<span class="sc">:</span>n, k<span class="sc">:</span>n] <span class="ot">&lt;-</span> <span class="fu">diag</span>(n <span class="sc">-</span> k <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">-</span> gamma <span class="sc">*</span> <span class="fu">tcrossprod</span>(u)</span>
+<span id="cb64-8"><a href="#cb64-8" aria-hidden="true" tabindex="-1"></a>H2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     [,1] [,2] [,3]
+[1,]    1  0.0  0.0
+[2,]    0 -0.6 -0.8
+[3,]    0 -0.8  0.6</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb66"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a><span class="co"># update sub-matrix of A via householder reflection</span></span>
+<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a>A[k<span class="sc">:</span>n, k<span class="sc">:</span>p] <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, k<span class="sc">:</span>p] <span class="sc">-</span> <span class="fu">tcrossprod</span>(gamma <span class="sc">*</span> u, <span class="fu">crossprod</span>(A[k<span class="sc">:</span>n, k<span class="sc">:</span>p], u))</span>
+<span id="cb66-4"><a href="#cb66-4" aria-hidden="true" tabindex="-1"></a>A</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     [,1] [,2] [,3]
+[1,]   -3    0  -12
+[2,]    0   -3   12
+[3,]    0    0    6</code></pre>
+</div>
+</div>
+<p>Finally, we move to the last sub-matrix which is just <span class="math inline">\([6]\)</span> at this point:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb68"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="dv">3</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a><span class="co"># extract kth sub-column</span></span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a>x_k <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, k]</span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate the norm</span></span>
+<span id="cb68-6"><a href="#cb68-6" aria-hidden="true" tabindex="-1"></a>nrm <span class="ot">&lt;-</span> <span class="fu">drop</span>(<span class="fu">sqrt</span>(<span class="fu">crossprod</span>(x_k)))</span>
+<span id="cb68-7"><a href="#cb68-7" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb68-8"><a href="#cb68-8" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate reflection vector u</span></span>
+<span id="cb68-9"><a href="#cb68-9" aria-hidden="true" tabindex="-1"></a>u <span class="ot">&lt;-</span> x_k</span>
+<span id="cb68-10"><a href="#cb68-10" aria-hidden="true" tabindex="-1"></a>u[<span class="dv">1</span>] <span class="ot">&lt;-</span> u[<span class="dv">1</span>] <span class="sc">+</span> <span class="fu">sign</span>(u[<span class="dv">1</span>]) <span class="sc">*</span> nrm</span>
+<span id="cb68-11"><a href="#cb68-11" aria-hidden="true" tabindex="-1"></a>u</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 12</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb70"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb70-2"><a href="#cb70-2" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate gamma = 2 / ||u||^2</span></span>
+<span id="cb70-3"><a href="#cb70-3" aria-hidden="true" tabindex="-1"></a>gamma <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">/</span> <span class="fu">drop</span>(<span class="fu">crossprod</span>(u))</span>
+<span id="cb70-4"><a href="#cb70-4" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb70-5"><a href="#cb70-5" aria-hidden="true" tabindex="-1"></a><span class="co"># calculate H&#39; for example </span></span>
+<span id="cb70-6"><a href="#cb70-6" aria-hidden="true" tabindex="-1"></a>H3 <span class="ot">&lt;-</span> <span class="fu">diag</span>(<span class="at">nrow =</span> n, <span class="at">ncol =</span> p)</span>
+<span id="cb70-7"><a href="#cb70-7" aria-hidden="true" tabindex="-1"></a>H3[k<span class="sc">:</span>n, k<span class="sc">:</span>n] <span class="ot">&lt;-</span> <span class="fu">diag</span>(n <span class="sc">-</span> k <span class="sc">+</span> <span class="dv">1</span>) <span class="sc">-</span> gamma <span class="sc">*</span> <span class="fu">tcrossprod</span>(u)</span>
+<span id="cb70-8"><a href="#cb70-8" aria-hidden="true" tabindex="-1"></a>H3</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     [,1] [,2] [,3]
+[1,]    1    0    0
+[2,]    0    1    0
+[3,]    0    0   -1</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb72"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb72-2"><a href="#cb72-2" aria-hidden="true" tabindex="-1"></a><span class="co"># update sub-matrix of A via householder reflection</span></span>
+<span id="cb72-3"><a href="#cb72-3" aria-hidden="true" tabindex="-1"></a>A[k<span class="sc">:</span>n, k<span class="sc">:</span>p] <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, k<span class="sc">:</span>p] <span class="sc">-</span> <span class="fu">tcrossprod</span>(gamma <span class="sc">*</span> u, <span class="fu">crossprod</span>(A[k<span class="sc">:</span>n, k<span class="sc">:</span>p], u))</span>
+<span id="cb72-4"><a href="#cb72-4" aria-hidden="true" tabindex="-1"></a>A</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     [,1] [,2] [,3]
+[1,]   -3    0  -12
+[2,]    0   -3   12
+[3,]    0    0   -6</code></pre>
+</div>
+</div>
+<p>Thus we can compute the orthogonal matrix <span class="math inline">\(Q\)</span> from QR decomposition as :<br>
+<span class="math display">\[
+Q = H_1^\top H_2^\top H_3^\top =
+  \begin{bmatrix}
+  -2/3 &amp; 2/3 &amp; -1/3 \\
+  -2/3 &amp; -1/3 &amp; 2/3 \\
+  -1/3 &amp; -2/3 &amp; -2/3
+  \end{bmatrix}
+\]</span></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb74"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a>Q <span class="ot">&lt;-</span> <span class="fu">crossprod</span>(H1, <span class="fu">crossprod</span>(H2, H3))</span>
+<span id="cb74-2"><a href="#cb74-2" aria-hidden="true" tabindex="-1"></a>Q</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>           [,1]       [,2]       [,3]
+[1,] -0.6666667  0.6666667 -0.3333333
+[2,] -0.6666667 -0.3333333  0.6666667
+[3,] -0.3333333 -0.6666667 -0.6666667</code></pre>
+</div>
+</div>
+<p>And we computed <span class="math inline">\(R\)</span> iteratively by transforming <span class="math inline">\(A\)</span> as: <span class="math display">\[
+R = H_3 H_2 H_1 A
+\]</span></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb76"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a>R <span class="ot">&lt;-</span> A[<span class="dv">1</span><span class="sc">:</span>p, ]</span>
+<span id="cb76-2"><a href="#cb76-2" aria-hidden="true" tabindex="-1"></a>R</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     [,1] [,2] [,3]
+[1,]   -3    0  -12
+[2,]    0   -3   12
+[3,]    0    0   -6</code></pre>
+</div>
+</div>
+</section>
+<section id="algorithm-in-r-qr-via-householder-reflections" class="level2">
+<h2 class="anchored" data-anchor-id="algorithm-in-r-qr-via-householder-reflections">Algorithm in R: QR via Householder Reflections</h2>
+<p>Here we will use Householder reflections to iteratively transform the input matrix into <span class="math inline">\(R\)</span>. We will also store <span class="math inline">\(u\)</span> and <span class="math inline">\(\gamma\)</span>, the components of each Householder matrix <span class="math inline">\(H_k\)</span>, to be used for other computations to demonstrate that we never need to explicitly compute <span class="math inline">\(Q\)</span>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb78"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a><span class="co"># sim some data</span></span>
+<span id="cb78-2"><a href="#cb78-2" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span>, <span class="fu">rnorm</span>(<span class="dv">100</span>), <span class="fu">rnorm</span>(<span class="dv">100</span>))</span>
+<span id="cb78-3"><a href="#cb78-3" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> x[,<span class="dv">1</span>] <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x[,<span class="dv">2</span>] <span class="sc">+</span> <span class="dv">3</span> <span class="sc">*</span> x[, <span class="dv">3</span>] <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">sd =</span> <span class="fl">0.25</span>)</span>
+<span id="cb78-4"><a href="#cb78-4" aria-hidden="true" tabindex="-1"></a>mod_test <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> <span class="sc">-</span><span class="dv">1</span> <span class="sc">+</span> x)</span>
+<span id="cb78-5"><a href="#cb78-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb78-6"><a href="#cb78-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb78-7"><a href="#cb78-7" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb78-8"><a href="#cb78-8" aria-hidden="true" tabindex="-1"></a><span class="co"># QR DECOMP BY HOUSEHOLDER REFLECTIONS</span></span>
+<span id="cb78-9"><a href="#cb78-9" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb78-10"><a href="#cb78-10" aria-hidden="true" tabindex="-1"></a>A <span class="ot">&lt;-</span> x</span>
+<span id="cb78-11"><a href="#cb78-11" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">nrow</span>(A)</span>
+<span id="cb78-12"><a href="#cb78-12" aria-hidden="true" tabindex="-1"></a>p <span class="ot">&lt;-</span> <span class="fu">ncol</span>(A)</span>
+<span id="cb78-13"><a href="#cb78-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb78-14"><a href="#cb78-14" aria-hidden="true" tabindex="-1"></a>us <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, n, p)</span>
+<span id="cb78-15"><a href="#cb78-15" aria-hidden="true" tabindex="-1"></a>gammas <span class="ot">&lt;-</span> <span class="fu">numeric</span>(p)</span>
+<span id="cb78-16"><a href="#cb78-16" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (k <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>p) {</span>
+<span id="cb78-17"><a href="#cb78-17" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb78-18"><a href="#cb78-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># compute components of Householder matrix H_k</span></span>
+<span id="cb78-19"><a href="#cb78-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb78-20"><a href="#cb78-20" aria-hidden="true" tabindex="-1"></a>  x_k   <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, k]                  <span class="co"># k-th sub-column</span></span>
+<span id="cb78-21"><a href="#cb78-21" aria-hidden="true" tabindex="-1"></a>  nrm   <span class="ot">&lt;-</span> <span class="fu">drop</span>(<span class="fu">sqrt</span>(<span class="fu">crossprod</span>(x_k))) <span class="co"># euclidean norm</span></span>
+<span id="cb78-22"><a href="#cb78-22" aria-hidden="true" tabindex="-1"></a>  u     <span class="ot">&lt;-</span> x_k                        <span class="co"># reflection vector</span></span>
+<span id="cb78-23"><a href="#cb78-23" aria-hidden="true" tabindex="-1"></a>  u[<span class="dv">1</span>]  <span class="ot">&lt;-</span> u[<span class="dv">1</span>] <span class="sc">+</span> <span class="fu">sign</span>(u[<span class="dv">1</span>]) <span class="sc">*</span> nrm</span>
+<span id="cb78-24"><a href="#cb78-24" aria-hidden="true" tabindex="-1"></a>  gamma <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">/</span> <span class="fu">drop</span>(<span class="fu">crossprod</span>(u))     <span class="co"># gamma = 2 / ||u||^2</span></span>
+<span id="cb78-25"><a href="#cb78-25" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb78-26"><a href="#cb78-26" aria-hidden="true" tabindex="-1"></a>  <span class="co"># update sub-matrix of A via householder reflection</span></span>
+<span id="cb78-27"><a href="#cb78-27" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb78-28"><a href="#cb78-28" aria-hidden="true" tabindex="-1"></a>  A[k<span class="sc">:</span>n, k<span class="sc">:</span>p] <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, k<span class="sc">:</span>p] <span class="sc">-</span> <span class="fu">tcrossprod</span>(gamma <span class="sc">*</span> u, <span class="fu">crossprod</span>(A[k<span class="sc">:</span>n,k<span class="sc">:</span>p], u))</span>
+<span id="cb78-29"><a href="#cb78-29" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb78-30"><a href="#cb78-30" aria-hidden="true" tabindex="-1"></a>  <span class="co"># store components of H_k</span></span>
+<span id="cb78-31"><a href="#cb78-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb78-32"><a href="#cb78-32" aria-hidden="true" tabindex="-1"></a>  us[k<span class="sc">:</span>n, k] <span class="ot">&lt;-</span> u</span>
+<span id="cb78-33"><a href="#cb78-33" aria-hidden="true" tabindex="-1"></a>  gammas[k] <span class="ot">&lt;-</span> gamma</span>
+<span id="cb78-34"><a href="#cb78-34" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb78-35"><a href="#cb78-35" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb78-36"><a href="#cb78-36" aria-hidden="true" tabindex="-1"></a><span class="co"># finalize upper triangular R</span></span>
+<span id="cb78-37"><a href="#cb78-37" aria-hidden="true" tabindex="-1"></a>R <span class="ot">&lt;-</span> A[<span class="dv">1</span><span class="sc">:</span>p, ]</span>
+<span id="cb78-38"><a href="#cb78-38" aria-hidden="true" tabindex="-1"></a>R[<span class="fu">lower.tri</span>(R)] <span class="ot">&lt;-</span> <span class="dv">0</span> <span class="co"># elements that are essentially 0 are zeroed</span></span>
+<span id="cb78-39"><a href="#cb78-39" aria-hidden="true" tabindex="-1"></a>R</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     [,1]        [,2]       [,3]
+[1,]  -10   0.7483852  1.3357602
+[2,]    0 -10.3489078  0.7301205
+[3,]    0   0.0000000 -9.8821139</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb80"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb80-2"><a href="#cb80-2" aria-hidden="true" tabindex="-1"></a><span class="co"># can compute Q (if you wanted to explicitly obtain Q)</span></span>
+<span id="cb80-3"><a href="#cb80-3" aria-hidden="true" tabindex="-1"></a><span class="co">#  via Householder reflections</span></span>
+<span id="cb80-4"><a href="#cb80-4" aria-hidden="true" tabindex="-1"></a>Q <span class="ot">&lt;-</span> <span class="fu">diag</span>(n)</span>
+<span id="cb80-5"><a href="#cb80-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (k <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>p) {</span>
+<span id="cb80-6"><a href="#cb80-6" aria-hidden="true" tabindex="-1"></a>  Q[,k<span class="sc">:</span>n] <span class="ot">&lt;-</span> Q[,k<span class="sc">:</span>n] <span class="sc">-</span> <span class="fu">tcrossprod</span>(Q[,k<span class="sc">:</span>n,<span class="at">drop=</span><span class="cn">FALSE</span>] <span class="sc">%*%</span> us[k<span class="sc">:</span>n, k], gammas[k] <span class="sc">*</span> us[k<span class="sc">:</span>n, k])</span>
+<span id="cb80-7"><a href="#cb80-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb80-8"><a href="#cb80-8" aria-hidden="true" tabindex="-1"></a>Q <span class="ot">&lt;-</span> Q[, <span class="dv">1</span><span class="sc">:</span>p]</span>
+<span id="cb80-9"><a href="#cb80-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb80-10"><a href="#cb80-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb80-11"><a href="#cb80-11" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(R, <span class="fu">qr.R</span>(<span class="fu">qr</span>(x)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb82"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(Q, <span class="fu">qr.Q</span>(<span class="fu">qr</span>(x)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+</div>
+<p>Now that we have obtained <span class="math inline">\(R\)</span> and have the components to perform calculations that require <span class="math inline">\(Q\)</span>, we can see how to use these components to finish our least squares estimation.</p>
+<p>We want to compute <span class="math inline">\(Q^\top y\)</span> so we can solve <span class="math inline">\(R \beta = Q^\top y\)</span> for <span class="math inline">\(\beta\)</span>.</p>
+<p>We saw that <span class="math inline">\(Q^\top = H_p H_{p-1} \cdots H_1\)</span>, and we know that we can compute any <span class="math inline">\(H_k x\)</span> using just <span class="math inline">\(u\)</span> and <span class="math inline">\(\gamma\)</span> by setting <span class="math inline">\(\alpha = u_k^\top x\)</span> and then updating <span class="math inline">\(x = x - \alpha \gamma_k u_k\)</span>:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb84"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb84-1"><a href="#cb84-1" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb84-2"><a href="#cb84-2" aria-hidden="true" tabindex="-1"></a><span class="co"># next we want to compute Q^\top y so we can solve R beta = Q^\top y</span></span>
+<span id="cb84-3"><a href="#cb84-3" aria-hidden="true" tabindex="-1"></a>z_test <span class="ot">&lt;-</span> <span class="fu">drop</span>(<span class="fu">crossprod</span>(Q, y))</span>
+<span id="cb84-4"><a href="#cb84-4" aria-hidden="true" tabindex="-1"></a>              </span>
+<span id="cb84-5"><a href="#cb84-5" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb84-6"><a href="#cb84-6" aria-hidden="true" tabindex="-1"></a><span class="co"># But for Householder matrices, can compute Q^\top y without using Q:</span></span>
+<span id="cb84-7"><a href="#cb84-7" aria-hidden="true" tabindex="-1"></a><span class="co"># since Q = H_1 ... H_p, and Q^\top = H_p ... H_1</span></span>
+<span id="cb84-8"><a href="#cb84-8" aria-hidden="true" tabindex="-1"></a><span class="co"># and we can compute H_k y using just u and gamma</span></span>
+<span id="cb84-9"><a href="#cb84-9" aria-hidden="true" tabindex="-1"></a>z <span class="ot">&lt;-</span> y</span>
+<span id="cb84-10"><a href="#cb84-10" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (k <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>p) {</span>
+<span id="cb84-11"><a href="#cb84-11" aria-hidden="true" tabindex="-1"></a>  alpha <span class="ot">&lt;-</span> <span class="fu">drop</span>(<span class="fu">crossprod</span>(us[k<span class="sc">:</span>n, k], z[k<span class="sc">:</span>n]))</span>
+<span id="cb84-12"><a href="#cb84-12" aria-hidden="true" tabindex="-1"></a>  z[k<span class="sc">:</span>n] <span class="ot">&lt;-</span> z[k<span class="sc">:</span>n] <span class="sc">-</span> alpha <span class="sc">*</span> gammas[k] <span class="sc">*</span> us[k<span class="sc">:</span>n, k]</span>
+<span id="cb84-13"><a href="#cb84-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb84-14"><a href="#cb84-14" aria-hidden="true" tabindex="-1"></a>(z <span class="ot">&lt;-</span> z[<span class="dv">1</span><span class="sc">:</span>p])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1]  -4.636833 -18.684683 -29.937131</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb86"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb86-1"><a href="#cb86-1" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(z_test, z)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+</div>
+<p>Now that we have computed <span class="math inline">\(R\)</span> and <span class="math inline">\(Q^\top y\)</span>, we can solve for <span class="math inline">\(\hat{\beta} = R^{-1} (Q^\top y)\)</span>, which as we saw above is simple thanks to the back-substitution inversion algorithm for an upper right triangular matrix (manual example above).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb88"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb88-1"><a href="#cb88-1" aria-hidden="true" tabindex="-1"></a>(beta <span class="ot">&lt;-</span> <span class="fu">backsolve</span>(R, z))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 1.019456 2.019201 3.029426</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb90"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb90-1"><a href="#cb90-1" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(beta, <span class="fu">unname</span>(<span class="fu">coef</span>(mod_test)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+</div>
+<p>For standard errors, we do not need <span class="math inline">\(Q\)</span> since we saw that <span class="math inline">\((X^\top X)^{-1} = (R^\top R)^{-1} = (R^{-1})(R^{-1})^\top\)</span> (the last formulation is useful because, again, it is convenient to invert an upper-right triangular matrix).</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb92"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb92-1"><a href="#cb92-1" aria-hidden="true" tabindex="-1"></a>Rinv <span class="ot">&lt;-</span> <span class="fu">backsolve</span>(R, <span class="fu">diag</span>(<span class="fu">nrow</span>(R))) <span class="co"># invert upper right</span></span>
+<span id="cb92-2"><a href="#cb92-2" aria-hidden="true" tabindex="-1"></a>(XtXinv <span class="ot">&lt;-</span> <span class="fu">tcrossprod</span>(Rinv))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>             [,1]         [,2]         [,3]
+[1,] 0.0102497324 0.0007990878 0.0014218857
+[2,] 0.0007990878 0.0093880458 0.0007224376
+[3,] 0.0014218857 0.0007224376 0.0102400079</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb94"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb94-1"><a href="#cb94-1" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(XtXinv,</span>
+<span id="cb94-2"><a href="#cb94-2" aria-hidden="true" tabindex="-1"></a>          <span class="fu">unname</span>(<span class="fu">vcov</span>(mod_test) <span class="sc">/</span> <span class="fu">sigma</span>(mod_test)<span class="sc">^</span><span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+</div>
+<p>To compute fitted values we could compute <span class="math inline">\(Q Q^\top y\)</span> as we saw above, but then we have to construct <span class="math inline">\(Q\)</span>. At this point, it is faster to simply compute <span class="math inline">\(\hat{y} = X \hat{\beta}\)</span>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb96"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb96-1"><a href="#cb96-1" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(x <span class="sc">%*%</span> beta,</span>
+<span id="cb96-2"><a href="#cb96-2" aria-hidden="true" tabindex="-1"></a>          <span class="fu">as.matrix</span>(<span class="fu">fitted</span>(mod_test)),</span>
+<span id="cb96-3"><a href="#cb96-3" aria-hidden="true" tabindex="-1"></a>          <span class="at">check.attributes =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+</div>
+<p>Note: more efficient way to store <span class="math inline">\(u\)</span> vectors since they get smaller with each iteration?</p>
+<ul>
+<li>https://math.stackexchange.com/questions/231557/calculating-number-of-non-zero-elements-in-a-lower-triangular-matrix<br>
+</li>
+<li>https://stackoverflow.com/questions/27380024/how-to-efficiently-store-a-triangular-matrix-in-memory</li>
+</ul>
+</section>
+<section id="pivoting" class="level2">
+<h2 class="anchored" data-anchor-id="pivoting">Pivoting</h2>
+<p>Wood (section B.8, pg. 423) explains that <em>pivoting</em> - or reordering the columns of the input matrix - can improve the stability of computations involving QR.</p>
+<p>Pivoting is performed iteratively as the QR decomposition progresses.</p>
+<ul>
+<li>The column with the largest Euclidean norm is first swapped into the first column.<br>
+</li>
+<li>After the first Householder reflection has been applied, the norms of the remaining columns - below the first row - are computed and the column with the largest norm is swapped into the second column.<br>
+</li>
+<li>The next Householder reflection is applied, and then the norms of the remaining columns below the second row are computed, and so on…</li>
+</ul>
+<p>A consequence of this approach is that any rank-deficiency is manifested as a trailing zero block of the triangular factor (<span class="math inline">\(R\)</span>), giving a way to test for rank deficiency.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb98"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb98-1"><a href="#cb98-1" aria-hidden="true" tabindex="-1"></a>qr_householder <span class="ot">&lt;-</span> <span class="cf">function</span>(A, <span class="at">y =</span> <span class="cn">NULL</span>,</span>
+<span id="cb98-2"><a href="#cb98-2" aria-hidden="true" tabindex="-1"></a>                           <span class="at">pivot =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb98-3"><a href="#cb98-3" aria-hidden="true" tabindex="-1"></a>                           <span class="co"># (same default as all.equal.numeric)</span></span>
+<span id="cb98-4"><a href="#cb98-4" aria-hidden="true" tabindex="-1"></a>                           <span class="at">tol =</span> <span class="fu">sqrt</span>(.Machine<span class="sc">$</span>double.eps)</span>
+<span id="cb98-5"><a href="#cb98-5" aria-hidden="true" tabindex="-1"></a>                           ) {</span>
+<span id="cb98-6"><a href="#cb98-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb98-7"><a href="#cb98-7" aria-hidden="true" tabindex="-1"></a>  <span class="co"># QR DECOMP BY HOUSEHOLDER REFLECTIONS</span></span>
+<span id="cb98-8"><a href="#cb98-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb98-9"><a href="#cb98-9" aria-hidden="true" tabindex="-1"></a>  n <span class="ot">&lt;-</span> <span class="fu">nrow</span>(A)</span>
+<span id="cb98-10"><a href="#cb98-10" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">&lt;-</span> <span class="fu">ncol</span>(A)</span>
+<span id="cb98-11"><a href="#cb98-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb98-12"><a href="#cb98-12" aria-hidden="true" tabindex="-1"></a>  us <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="dv">0</span>, n, p) <span class="co"># store u_k vector for H_k </span></span>
+<span id="cb98-13"><a href="#cb98-13" aria-hidden="true" tabindex="-1"></a>  gammas <span class="ot">&lt;-</span> <span class="fu">numeric</span>(p)  <span class="co"># store gamma_k scalar for H_k</span></span>
+<span id="cb98-14"><a href="#cb98-14" aria-hidden="true" tabindex="-1"></a>  col_order <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">:</span>p</span>
+<span id="cb98-15"><a href="#cb98-15" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (k <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>p) {</span>
+<span id="cb98-16"><a href="#cb98-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-17"><a href="#cb98-17" aria-hidden="true" tabindex="-1"></a>    <span class="co"># compute column norms and pivot</span></span>
+<span id="cb98-18"><a href="#cb98-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-19"><a href="#cb98-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (pivot) {</span>
+<span id="cb98-20"><a href="#cb98-20" aria-hidden="true" tabindex="-1"></a>      norms <span class="ot">&lt;-</span> <span class="fu">apply</span>(A[k<span class="sc">:</span>n, col_order][, k<span class="sc">:</span>p, <span class="at">drop =</span> <span class="cn">FALSE</span>],</span>
+<span id="cb98-21"><a href="#cb98-21" aria-hidden="true" tabindex="-1"></a>                     <span class="at">MARGIN =</span> <span class="dv">2</span>,</span>
+<span id="cb98-22"><a href="#cb98-22" aria-hidden="true" tabindex="-1"></a>                     norm, <span class="at">type =</span> <span class="st">&quot;2&quot;</span>) <span class="co"># euclidean norm</span></span>
+<span id="cb98-23"><a href="#cb98-23" aria-hidden="true" tabindex="-1"></a>      piv <span class="ot">&lt;-</span> <span class="fu">which.max</span>(norms)</span>
+<span id="cb98-24"><a href="#cb98-24" aria-hidden="true" tabindex="-1"></a>      <span class="do">## swap column order</span></span>
+<span id="cb98-25"><a href="#cb98-25" aria-hidden="true" tabindex="-1"></a>      tmp <span class="ot">&lt;-</span> col_order[k]</span>
+<span id="cb98-26"><a href="#cb98-26" aria-hidden="true" tabindex="-1"></a>      col_order[k] <span class="ot">&lt;-</span> col_order[k<span class="sc">:</span>p][piv]</span>
+<span id="cb98-27"><a href="#cb98-27" aria-hidden="true" tabindex="-1"></a>      col_order[k<span class="sc">:</span>p][piv] <span class="ot">&lt;-</span> tmp</span>
+<span id="cb98-28"><a href="#cb98-28" aria-hidden="true" tabindex="-1"></a>      nrm <span class="ot">&lt;-</span> norms[piv]</span>
+<span id="cb98-29"><a href="#cb98-29" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb98-30"><a href="#cb98-30" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-31"><a href="#cb98-31" aria-hidden="true" tabindex="-1"></a>    <span class="co"># compute components of Householder matrix H_k</span></span>
+<span id="cb98-32"><a href="#cb98-32" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-33"><a href="#cb98-33" aria-hidden="true" tabindex="-1"></a>    x_k   <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, col_order][, k]     <span class="co"># k-th sub-column with largest norm</span></span>
+<span id="cb98-34"><a href="#cb98-34" aria-hidden="true" tabindex="-1"></a>    nrm   <span class="ot">&lt;-</span> <span class="cf">if</span> (pivot) norms[piv] <span class="cf">else</span> <span class="fu">drop</span>(<span class="fu">sqrt</span>(<span class="fu">crossprod</span>(x))) <span class="co"># euclid norm</span></span>
+<span id="cb98-35"><a href="#cb98-35" aria-hidden="true" tabindex="-1"></a>    u     <span class="ot">&lt;-</span> x_k                        <span class="co"># reflection vector</span></span>
+<span id="cb98-36"><a href="#cb98-36" aria-hidden="true" tabindex="-1"></a>    u[<span class="dv">1</span>]  <span class="ot">&lt;-</span> u[<span class="dv">1</span>] <span class="sc">+</span> <span class="fu">sign</span>(u[<span class="dv">1</span>]) <span class="sc">*</span> nrm</span>
+<span id="cb98-37"><a href="#cb98-37" aria-hidden="true" tabindex="-1"></a>    gamma <span class="ot">&lt;-</span> <span class="dv">2</span> <span class="sc">/</span> <span class="fu">drop</span>(<span class="fu">crossprod</span>(u))     <span class="co"># gamma = 2 / ||u||^2</span></span>
+<span id="cb98-38"><a href="#cb98-38" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-39"><a href="#cb98-39" aria-hidden="true" tabindex="-1"></a>    <span class="co"># update sub-matrix of A via householder reflection</span></span>
+<span id="cb98-40"><a href="#cb98-40" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-41"><a href="#cb98-41" aria-hidden="true" tabindex="-1"></a>    Asub <span class="ot">&lt;-</span> A[k<span class="sc">:</span>n, col_order][, k<span class="sc">:</span>p]</span>
+<span id="cb98-42"><a href="#cb98-42" aria-hidden="true" tabindex="-1"></a>    A[k<span class="sc">:</span>n, col_order][, k<span class="sc">:</span>p] <span class="ot">&lt;-</span> Asub <span class="sc">-</span> <span class="fu">tcrossprod</span>(gamma <span class="sc">*</span> u, <span class="fu">crossprod</span>(Asub, u))</span>
+<span id="cb98-43"><a href="#cb98-43" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-44"><a href="#cb98-44" aria-hidden="true" tabindex="-1"></a>    <span class="co"># store components of H_k</span></span>
+<span id="cb98-45"><a href="#cb98-45" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-46"><a href="#cb98-46" aria-hidden="true" tabindex="-1"></a>    us[k<span class="sc">:</span>n, k] <span class="ot">&lt;-</span> u</span>
+<span id="cb98-47"><a href="#cb98-47" aria-hidden="true" tabindex="-1"></a>    gammas[k] <span class="ot">&lt;-</span> gamma</span>
+<span id="cb98-48"><a href="#cb98-48" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb98-49"><a href="#cb98-49" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb98-50"><a href="#cb98-50" aria-hidden="true" tabindex="-1"></a>  <span class="co"># finalize upper triangular R</span></span>
+<span id="cb98-51"><a href="#cb98-51" aria-hidden="true" tabindex="-1"></a>  R <span class="ot">&lt;-</span> A[<span class="dv">1</span><span class="sc">:</span>p, col_order]</span>
+<span id="cb98-52"><a href="#cb98-52" aria-hidden="true" tabindex="-1"></a>  R[<span class="fu">lower.tri</span>(R)] <span class="ot">&lt;-</span> <span class="dv">0</span> <span class="co"># lower tri elements that are essentially 0 are zeroed</span></span>
+<span id="cb98-53"><a href="#cb98-53" aria-hidden="true" tabindex="-1"></a>  <span class="co">#</span></span>
+<span id="cb98-54"><a href="#cb98-54" aria-hidden="true" tabindex="-1"></a>  <span class="co"># check for linear dependence</span></span>
+<span id="cb98-55"><a href="#cb98-55" aria-hidden="true" tabindex="-1"></a>  sing <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
+<span id="cb98-56"><a href="#cb98-56" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (pivot) {</span>
+<span id="cb98-57"><a href="#cb98-57" aria-hidden="true" tabindex="-1"></a>    rr <span class="ot">&lt;-</span> <span class="fu">which</span>(<span class="fu">abs</span>(<span class="fu">diag</span>(R)) <span class="sc">&lt;</span> tol)</span>
+<span id="cb98-58"><a href="#cb98-58" aria-hidden="true" tabindex="-1"></a>    (rank <span class="ot">&lt;-</span> p <span class="sc">-</span> <span class="fu">length</span>(rr))</span>
+<span id="cb98-59"><a href="#cb98-59" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (rank <span class="sc">&lt;</span> p) {</span>
+<span id="cb98-60"><a href="#cb98-60" aria-hidden="true" tabindex="-1"></a>      <span class="fu">warning</span>(<span class="st">&quot;Singular fit detected.&quot;</span>)</span>
+<span id="cb98-61"><a href="#cb98-61" aria-hidden="true" tabindex="-1"></a>      sing <span class="ot">&lt;-</span> <span class="cn">TRUE</span></span>
+<span id="cb98-62"><a href="#cb98-62" aria-hidden="true" tabindex="-1"></a>    } <span class="cf">else</span> {</span>
+<span id="cb98-63"><a href="#cb98-63" aria-hidden="true" tabindex="-1"></a>      sing <span class="ot">&lt;-</span> <span class="cn">FALSE</span></span>
+<span id="cb98-64"><a href="#cb98-64" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb98-65"><a href="#cb98-65" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (rank <span class="sc">==</span> <span class="dv">0</span>)</span>
+<span id="cb98-66"><a href="#cb98-66" aria-hidden="true" tabindex="-1"></a>      <span class="fu">stop</span>(<span class="st">&quot;Input matrix is of rank 0.&quot;</span>)</span>
+<span id="cb98-67"><a href="#cb98-67" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb98-68"><a href="#cb98-68" aria-hidden="true" tabindex="-1"></a>  beta <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
+<span id="cb98-69"><a href="#cb98-69" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span><span class="fu">is.null</span>(y)) {</span>
+<span id="cb98-70"><a href="#cb98-70" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-71"><a href="#cb98-71" aria-hidden="true" tabindex="-1"></a>    <span class="co"># compute Q&#39;y</span></span>
+<span id="cb98-72"><a href="#cb98-72" aria-hidden="true" tabindex="-1"></a>    z <span class="ot">&lt;-</span> y</span>
+<span id="cb98-73"><a href="#cb98-73" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (k <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>rank) {</span>
+<span id="cb98-74"><a href="#cb98-74" aria-hidden="true" tabindex="-1"></a>      alpha <span class="ot">&lt;-</span> <span class="fu">drop</span>(<span class="fu">crossprod</span>(us[k<span class="sc">:</span>n, k], z[k<span class="sc">:</span>n]))</span>
+<span id="cb98-75"><a href="#cb98-75" aria-hidden="true" tabindex="-1"></a>      z[k<span class="sc">:</span>n] <span class="ot">&lt;-</span> z[k<span class="sc">:</span>n] <span class="sc">-</span> alpha <span class="sc">*</span> gammas[k] <span class="sc">*</span> us[k<span class="sc">:</span>n, k]</span>
+<span id="cb98-76"><a href="#cb98-76" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb98-77"><a href="#cb98-77" aria-hidden="true" tabindex="-1"></a>    z <span class="ot">&lt;-</span> z[<span class="dv">1</span><span class="sc">:</span>rank]</span>
+<span id="cb98-78"><a href="#cb98-78" aria-hidden="true" tabindex="-1"></a>    <span class="co">#</span></span>
+<span id="cb98-79"><a href="#cb98-79" aria-hidden="true" tabindex="-1"></a>    <span class="co"># backsolve for beta = (R)^-1 Q&#39; y</span></span>
+<span id="cb98-80"><a href="#cb98-80" aria-hidden="true" tabindex="-1"></a>    beta <span class="ot">&lt;-</span> <span class="fu">backsolve</span>(R[<span class="dv">1</span><span class="sc">:</span>rank, <span class="dv">1</span><span class="sc">:</span>rank], z)</span>
+<span id="cb98-81"><a href="#cb98-81" aria-hidden="true" tabindex="-1"></a>    <span class="co"># </span><span class="al">TODO</span><span class="co"> vectorize</span></span>
+<span id="cb98-82"><a href="#cb98-82" aria-hidden="true" tabindex="-1"></a>    coefs <span class="ot">&lt;-</span> <span class="fu">rep_len</span>(<span class="cn">NA</span>, p)</span>
+<span id="cb98-83"><a href="#cb98-83" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq</span>(p)) coefs[col_order[i]] <span class="ot">&lt;-</span> beta[i]</span>
+<span id="cb98-84"><a href="#cb98-84" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb98-85"><a href="#cb98-85" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(</span>
+<span id="cb98-86"><a href="#cb98-86" aria-hidden="true" tabindex="-1"></a>    <span class="at">R =</span> R,</span>
+<span id="cb98-87"><a href="#cb98-87" aria-hidden="true" tabindex="-1"></a>    <span class="at">us =</span> us,</span>
+<span id="cb98-88"><a href="#cb98-88" aria-hidden="true" tabindex="-1"></a>    <span class="at">gammas =</span> gammas,</span>
+<span id="cb98-89"><a href="#cb98-89" aria-hidden="true" tabindex="-1"></a>    <span class="at">coefficients =</span> coefs,</span>
+<span id="cb98-90"><a href="#cb98-90" aria-hidden="true" tabindex="-1"></a>    <span class="at">rank =</span> rank,</span>
+<span id="cb98-91"><a href="#cb98-91" aria-hidden="true" tabindex="-1"></a>    <span class="at">pivot =</span> col_order,</span>
+<span id="cb98-92"><a href="#cb98-92" aria-hidden="true" tabindex="-1"></a>    <span class="at">pivoted =</span> pivot</span>
+<span id="cb98-93"><a href="#cb98-93" aria-hidden="true" tabindex="-1"></a>  ))</span>
+<span id="cb98-94"><a href="#cb98-94" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>First lets test the function on a full rank matrix:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb99"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb99-1"><a href="#cb99-1" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span>, <span class="fu">rnorm</span>(<span class="dv">100</span>), <span class="fu">rnorm</span>(<span class="dv">100</span>))</span>
+<span id="cb99-2"><a href="#cb99-2" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> x[,<span class="dv">1</span>] <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> x[,<span class="dv">2</span>] <span class="sc">+</span> <span class="dv">3</span> <span class="sc">*</span> x[, <span class="dv">3</span>] <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">sd =</span> <span class="fl">0.25</span>)</span>
+<span id="cb99-3"><a href="#cb99-3" aria-hidden="true" tabindex="-1"></a>mod_test <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> <span class="sc">-</span><span class="dv">1</span> <span class="sc">+</span> x)</span>
+<span id="cb99-4"><a href="#cb99-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb99-5"><a href="#cb99-5" aria-hidden="true" tabindex="-1"></a>hqr <span class="ot">&lt;-</span> <span class="fu">qr_householder</span>(x, y)</span>
+<span id="cb99-6"><a href="#cb99-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb99-7"><a href="#cb99-7" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(hqr<span class="sc">$</span>R,</span>
+<span id="cb99-8"><a href="#cb99-8" aria-hidden="true" tabindex="-1"></a>          <span class="fu">qr.R</span>(<span class="fu">qr</span>(x, <span class="at">LAPACK =</span> <span class="cn">TRUE</span>))) <span class="co"># LAPACK routine does pivot</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb101"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb101-1"><a href="#cb101-1" aria-hidden="true" tabindex="-1"></a><span class="co"># note - only LINPACK (ie, when LAPACK = FALSE), checks for linear dependencies</span></span>
+<span id="cb101-2"><a href="#cb101-2" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(hqr<span class="sc">$</span>rank,</span>
+<span id="cb101-3"><a href="#cb101-3" aria-hidden="true" tabindex="-1"></a>          <span class="fu">qr</span>(x)<span class="sc">$</span>rank)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb103"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb103-1"><a href="#cb103-1" aria-hidden="true" tabindex="-1"></a><span class="fu">all.equal</span>(hqr<span class="sc">$</span>coefficients,</span>
+<span id="cb103-2"><a href="#cb103-2" aria-hidden="true" tabindex="-1"></a>          <span class="fu">unname</span>(<span class="fu">coef</span>(mod_test)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] TRUE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb105"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb105-1"><a href="#cb105-1" aria-hidden="true" tabindex="-1"></a><span class="fu">setNames</span>(hqr<span class="sc">$</span>coefficients,</span>
+<span id="cb105-2"><a href="#cb105-2" aria-hidden="true" tabindex="-1"></a>         <span class="fu">paste0</span>(<span class="st">&quot;X&quot;</span>, <span class="fu">seq</span>(<span class="fu">ncol</span>(x))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>      X1       X2       X3 
+1.009604 1.997849 2.996193 </code></pre>
+</div>
+</div>
+<p>Now test the function on a rank deficient matrix, where the third covariate is a linear combination of the second covariate.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb107"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb107-1"><a href="#cb107-1" aria-hidden="true" tabindex="-1"></a><span class="co"># sim some data - with rank deficiency</span></span>
+<span id="cb107-2"><a href="#cb107-2" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">cbind</span>(<span class="dv">1</span>, <span class="fu">rnorm</span>(<span class="dv">100</span>))</span>
+<span id="cb107-3"><a href="#cb107-3" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">cbind</span>(x, x[, <span class="dv">2</span>] <span class="sc">*</span> <span class="dv">2</span>) <span class="co"># x3 = 2 * x2</span></span>
+<span id="cb107-4"><a href="#cb107-4" aria-hidden="true" tabindex="-1"></a>y <span class="ot">&lt;-</span> x[,<span class="dv">1</span>] <span class="sc">+</span>  x[,<span class="dv">2</span>] <span class="sc">+</span> x[, <span class="dv">3</span>] <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">100</span>, <span class="at">sd =</span> <span class="fl">0.25</span>)</span>
+<span id="cb107-5"><a href="#cb107-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb107-6"><a href="#cb107-6" aria-hidden="true" tabindex="-1"></a><span class="co"># error expected:</span></span>
+<span id="cb107-7"><a href="#cb107-7" aria-hidden="true" tabindex="-1"></a><span class="co"># calculating a regression in R will error if we don&#39;t allow for singular fits </span></span>
+<span id="cb107-8"><a href="#cb107-8" aria-hidden="true" tabindex="-1"></a><span class="fu">try</span>(</span>
+<span id="cb107-9"><a href="#cb107-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">lm</span>(y <span class="sc">~</span> <span class="sc">-</span><span class="dv">1</span> <span class="sc">+</span> x, <span class="at">singular.ok =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb107-10"><a href="#cb107-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Error in lm.fit(x, y, offset = offset, singular.ok = singular.ok, ...) : 
+  singular fit encountered</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb109"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb109-1"><a href="#cb109-1" aria-hidden="true" tabindex="-1"></a><span class="co"># error expected:</span></span>
+<span id="cb109-2"><a href="#cb109-2" aria-hidden="true" tabindex="-1"></a><span class="co"># trying to solve by brute force, we see it fails since the matrix is not invertible!</span></span>
+<span id="cb109-3"><a href="#cb109-3" aria-hidden="true" tabindex="-1"></a><span class="fu">try</span>(</span>
+<span id="cb109-4"><a href="#cb109-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">crossprod</span>(<span class="fu">solve</span>(<span class="fu">crossprod</span>(x)), <span class="fu">crossprod</span>(x, y)) <span class="co"># b = (X&#39;X)^-1 X&#39;y</span></span>
+<span id="cb109-5"><a href="#cb109-5" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Error in solve.default(crossprod(x)) : 
+  Lapack routine dgesv: system is exactly singular: U[3,3] = 0</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb111"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb111-1"><a href="#cb111-1" aria-hidden="true" tabindex="-1"></a><span class="co"># by default lm will not error but will essentially drop the third covariate</span></span>
+<span id="cb111-2"><a href="#cb111-2" aria-hidden="true" tabindex="-1"></a>mod_test <span class="ot">&lt;-</span> <span class="fu">lm</span>(y <span class="sc">~</span> <span class="sc">-</span><span class="dv">1</span> <span class="sc">+</span> x)</span>
+<span id="cb111-3"><a href="#cb111-3" aria-hidden="true" tabindex="-1"></a><span class="fu">coef</span>(mod_test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       x1        x2        x3 
+0.9884761 3.0119242        NA </code></pre>
+</div>
+</div>
+<p>In the function, we test for a singular fit by determining if any of the diagonals are essentially 0.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb113"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb113-1"><a href="#cb113-1" aria-hidden="true" tabindex="-1"></a>hqr <span class="ot">&lt;-</span> <span class="fu">qr_householder</span>(x, y)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in qr_householder(x, y): Singular fit detected.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb115"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb115-1"><a href="#cb115-1" aria-hidden="true" tabindex="-1"></a><span class="co"># last diagonal element is essentially 0</span></span>
+<span id="cb115-2"><a href="#cb115-2" aria-hidden="true" tabindex="-1"></a>hqr<span class="sc">$</span>R</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          [,1]       [,2]          [,3]
+[1,] -20.25614  0.6099208 -1.012807e+01
+[2,]   0.00000 -9.9813825 -1.880149e-16
+[3,]   0.00000  0.0000000  2.477927e-15</code></pre>
+</div>
+</div>
+<p>Note that the coefficients differ slightly from the output of <code>lm</code>. Specifically, while the intercept is the same, the estimated slope is different - R’s function estimated a slope for X2 and our function estimated a slope for X3. We produced an estimate for X3 instead of X2 due to the results of our particular pivoting implementation.<br>
+It isn’t of huge importance, since a singular fit implies that there are an infinite number of equally good solutions to this linear system.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb117"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb117-1"><a href="#cb117-1" aria-hidden="true" tabindex="-1"></a><span class="fu">coef</span>(mod_test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       x1        x2        x3 
+0.9884761 3.0119242        NA </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb119"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb119-1"><a href="#cb119-1" aria-hidden="true" tabindex="-1"></a><span class="fu">setNames</span>(hqr<span class="sc">$</span>coefficients,</span>
+<span id="cb119-2"><a href="#cb119-2" aria-hidden="true" tabindex="-1"></a>         <span class="fu">paste0</span>(<span class="st">&quot;X&quot;</span>, <span class="fu">seq</span>(<span class="fu">ncol</span>(x))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       X1        X2        X3 
+0.9884761        NA 1.5059621 </code></pre>
+</div>
+</div>
+<p>(Notice that the coefficient R estimates for X2 is exactly twice as big as the coefficient we estimate for X3, and in our simulation X3 = 2 * X2, so we would expect its coefficient to be exactly half the size.)</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb121"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb121-1"><a href="#cb121-1" aria-hidden="true" tabindex="-1"></a><span class="do">##</span></span>
+<span id="cb121-2"><a href="#cb121-2" aria-hidden="true" tabindex="-1"></a><span class="fu">unname</span>(<span class="fu">coef</span>(mod_test)[<span class="dv">2</span>] <span class="sc">/</span> hqr<span class="sc">$</span>coefficients[<span class="dv">3</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2</code></pre>
+</div>
+</div>
+<p>If we repeat the regression but remove one of the collinear covariates, we can get back to a unique solution.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb123"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb123-1"><a href="#cb123-1" aria-hidden="true" tabindex="-1"></a><span class="fu">qr_householder</span>(x[, <span class="sc">-</span><span class="dv">2</span>], y)<span class="sc">$</span>coeff</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.9884761 1.5059621</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb125"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb125-1"><a href="#cb125-1" aria-hidden="true" tabindex="-1"></a><span class="fu">qr_householder</span>(x[, <span class="sc">-</span><span class="dv">3</span>], y)<span class="sc">$</span>coeff</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.9884761 3.0119242</code></pre>
+</div>
+</div>
+</section>
 </section>
 
 </main>
