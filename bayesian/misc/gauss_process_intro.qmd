@@ -1,0 +1,798 @@
+---
+title: "Gaussian processes"
+author: "Hans Elliott"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+These notes are inspired by these 2 great tutorials at below links which do my favorite thing - understand a topic (well, a piece of it) by showing how to implement it from "scratch":  
+
+- <https://hendersontrent.github.io/posts/2024/05/gaussian-process-time-series/>
+- <https://peterroelants.github.io/posts/gaussian-process-tutorial/>
+
+I also found this post to be a great next read after the above introductions. The below is a bit more nuanced and also delves into some of the problems with GPs:  
+
+- <https://betanalpha.github.io/assets/case_studies/gaussian_processes.html>  
+
+
+```{r}
+library(ggplot2)
+library(patchwork)
+library(MASS)
+
+set.seed(1614)
+```
+
+
+
+
+# Intro
+
+Gaussian processes on their own are fairly simple to understand and implement once we make some conceptual leaps. As we'll see, this is partially because we're leaving out the tuning of hyperperameters. In practice, this crucial step complicates the process quite a bit and inspires the need for more advanced software and methods (e.g., MCMC using stan, tensorflow probability, etc.).  
+
+Essentially, as you'll see in many resources, we can think of a Gaussian process as a distribution over functions or paths. If we have a single covariate (e.g., time) then we can imagine a distribution over functions that map time to some value.  
+
+```{r}
+#| code-fold: true
+cov_sqexp <- function(x, xp, sigma_sq, l) {
+  n1 <- length(x)
+  n2 <- length(xp)
+  K <- matrix(0, nrow = n1, ncol = n2)
+  for (i in 1:n1) {
+    for (j in 1:n2) {
+      K[i, j] <- sigma_sq * exp(-0.5 * (x[i] - xp[j])^2 / l^2)
+    }
+  }
+  return(K)
+}
+x <- seq(-2, 2, length.out = 100)
+K <- cov_sqexp(x, x, 1, 1)
+
+draws <- t(mvrnorm(n = 1000, rep(0, length(x)), K))
+matplot(x, draws, type = "l", col = alpha("gray", 0.25), lty = 1,
+        xlab = "x", ylab = "f(x)",
+        main = "A space of possible functions")
+matplot(x, draws[, 1:10],
+        type = "l", col = "black", add = TRUE)
+```
+
+Our goal will essentially be to define some prior over the function space, which sort of constrains the possible functions we can draw. This is what I did to produce the plot above - technically that plot represents a prior distribution over functions. This is evident by the fact that the functions seem to have similair behavior over the $x$ values.   
+
+Then, we'll introduce data and update our prior distribution into a posterior distribution as is visualized below.
+
+```{r}
+#| code-fold: true
+
+# sim some training data
+x <- seq(-2, 2, length.out = 100)
+x <- x[sample(1:length(x), 10)] # randomly select a few points
+y <- x + sin(0.5 * pi * x) + rnorm(length(x), sd = 0.1)
+# sim some test data
+xp <- seq(-2, 2, length.out = 100) # predict over full range
+yp_true <- xp + sin(0.5 * pi * xp)
+
+# fit GP
+l <- 0.6           ## length scale
+ss <- 0.5           ## sigma^2 - amplitude of kernel
+ss_data <- 0.005    ## noise variance
+K11 <- cov_sqexp(x, x, ss, l) + diag(ss_data, nrow = length(x))
+K12 <- cov_sqexp(x, xp, ss, l)
+K22 <- cov_sqexp(xp, xp, ss, l)
+inv <- t(solve(K11, K12))
+up <- inv %*% y
+sigmap <- K22 - inv %*% K12
+
+# sample from the posterior
+draws <- t(mvrnorm(n = 100, up, sigmap))
+matplot(xp, draws, type = "l", col = alpha("gray", 0.25), lty = 1,
+        xlab = "x", ylab = "f(x)",
+        main = "Realizations from posterior distribution",
+        sub = "Dashed line is true function. Red points are train data.")
+lines(xp, yp_true, col = "black", lty = 2)
+points(x, y, pch = 19, cex = 0.25, col = "red")
+```
+
+
+A Gaussian process is a mutlivariate Gaussian (normal) distribution over functions. Thus, it is defined by its mean and covariance like any Gaussian distribution. However, in this scenario, the mean and covariances are themselves functions.  
+
+
+$$
+f(x) = \mathcal{GP}(m(x), k(x, x'))
+$$
+
+- $m(x)$: mean function  
+- $k(x, x')$: covariance function, or kernel  
+
+This is considered to be a generalization of the multivariate normal distribution $X \sim N_n(\boldsymbol{\mu_n}, \Sigma_{n \times n})$ to infinite dimensions... the mean vector $\boldsymbol{\mu}$ becomes a mean function $m(x)$ and the covariance matrix $\Sigma$ becomes a covariance function $k(x, x')$. The random variable is now a random function $f(x)$, and thus the probability distribution is over functions.  
+
+From [wikipedia](https://en.wikipedia.org/wiki/Gaussian_process): "a Gaussian process is a stochastic process (a collection of random variables indexed by time or space), such that every finite collection of those random variables has a multivariate normal distribution. The distribution of a Gaussian process is the joint distribution of all those (infinitely many) random variables, and as such, it is a distribution over functions with a continuous domain, e.g. time or space."  
+
+So lets back up first and review stochastic processes in general.  
+
+# Stochastic Processes
+
+A stochastic process is a collection of random variables that can be indexed by some *index set* (e.g., by time). Each random variable in the collection takes values in the same space (e.g., the real numbers for a Gaussian process), called the *state space*. A single draw from the process, or a "sample function", is a realization of the whole collection of random variables. According to wikipedia, a stochastic process is sometimes called a "random function" since it can be interpreted as a random element in a function space. A function space is just a set of functions between two fixed sets. In the simple stochastic process case, these fixed sets are the *index set* and the *state space*. So we can imagine a set of all possible functions between the time indices and the real numbers, and thus a single **realization** of the process amounts to picking one of the functions from this set. Thus, another useful definition is that a stochastic process is a probability distribution over a space of possible "paths".  
+
+For example, a simple stochastic process is $\{f(t) = t \text{ with } p =1/2; f(t) = -t \text{ with } p=1/2\} ~~ \forall t$. There are only 2 possible paths that can be realized by this process:  
+```{r}
+#| code-fold: true
+
+par(mfrow = c(1, 2))
+plot(0:10, 0:10, type = "p",
+     ylab = expression(X[t]), xlab = "t", main = "Realization 1")
+plot(0:10, -(0:10), type = "p",
+     ylab = expression(X[t]), xlab = "t", main = "Realization 2")
+mtext("Simple Stochastic Process", outer = TRUE, cex = 1, line = -1.3)
+```
+The process is stochastic because at $t = 0$ we don't know which path is being realized - each point $X_t$ is itself a random variable because it could take on one of two values (1 or -1, 2 or -2, etc.), based on which path is being realized.  
+
+A more interesting example is a simple random walk, where the value of the process at each time point is the sum of all the previous values, $+1$ with $p = 1/2$ or $-1$ with $p = 1/2$. Unlike the above example, at each time point we cannot use any information about the past to infer what the next value will be - it is always a 50% chance of being $+1$ and 50% chance of being $-1$.  
+
+```{r}
+#| code-fold: true
+
+n <- 500
+# 0 + (-1 or 1)_1 + ... + (-1 or 1)_t
+X_t <- cumsum(c(0, sample(c(-1, 1), n, replace = TRUE)))
+plot(seq(0, n), X_t,
+     type = "l", xlab = "t", ylab = expression(X[t]),
+     main = "Simple random walk")
+```
+
+These examples pull from this lecture video which has a nice introduction to stochastic processes: [Stochastic Processes I from MIT OpenCourseWare](https://youtu.be/TuTmC8aOQJE?si=t-wh8Td3b1bHOxQa).  
+
+# Gaussian Processes
+
+The Gaussian process is a specific type of stochastic process where the joint distribution of any finite collection of the random variables from the process is [multivariate normal](https://en.wikipedia.org/wiki/Multivariate_normal_distribution). In other words, if you grab just a few of the random variables out of the collection that make up the Gaussian process, they will jointly have a multivariate normal distribution. If you pick exactly 2 random variables out of the Gaussian process, you will have a bivariate normal which can be visualized relatively easily:  
+
+```{r}
+#| code-fold: true
+
+X1 <- rnorm(1000)
+X2 <- rnorm(1000)
+# 2-d kernel density estimate to visualize the bivariate normal
+Xkd <- kde2d(X1, X2)
+
+par(mfrow = c(1, 2))
+
+# scatter
+plot(X1, X2, xlab = "X1", ylab = "X2", main = "Bivariate Normal",
+     col = alpha("grey30", 0.5), cex = 0.5)
+contour(Xkd, col = "red", add = TRUE)
+
+# 3d
+persp(Xkd, box=TRUE, theta = 30, phi = 30, expand = 0.5,
+      xlab = "X1", ylab = "X2", zlab = "Probability")
+```
+
+This is of course a strong assumption, but it comes with many benefits.  
+
+So we have clarified our objectives somewhat: by modeling the data as a stochastic process, we are seeking to model the distribution of possible paths that the data could take, or more specifically, modeling the distribution over the space of functions that define these paths.    
+The Gaussian process is a specific type of stochastic process and adds some additional assumptions.  
+
+An important and useful fact about Gaussian processes is that they are completely defined by their second-order statistics (i.e., the variance). Thus, if we assume the process has a mean of zero, we only need to specify the covariance function $k(x, x')$ to completely define the process.  
+
+When it comes to the covariance function, we must actually pick a function of some form. There are many possible choices (e.g., see <https://www.cs.toronto.edu/~duvenaud/cookbook/>) and some limitations (mainly, the function must be positive semi-definite).  
+
+
+An interesting side not discussed [here](https://betanalpha.github.io/assets/case_studies/gaussian_processes.html):  
+There are 2 common ways to plot a GP. One is the "spaghetti plot", where you sample N realizations and plot them all as curves, like is done above. Another - common in Bayesian analysis - is to compute quantiles from the posterior distribution and use those to plot a "ribbon". In doing so, we are actually computing *marginal quantiles* of the posterior because we compute the quantiles for each value of $x$, not the full posterior distribution. In other words, we ignore the correlations across different covariate values, leading to credible intervals that are narrower than they really should be. The blog recommends using both, potentially together.      
+
+
+```{r}
+#| code-fold: true
+ndraw <- 500
+# sample from the GP fit above, transpose data to long fmt
+draws <- t(mvrnorm(n = ndraw, up, sigmap))
+draws <- as.data.frame(draws)
+draws$x <- xp
+draws <- reshape(draws,
+                 direction = "long",
+                 varying = paste0("V", 1:ndraw), #V1,...
+                 v.names = "y",
+                 times = 1:ndraw,
+                 timevar = "draw")
+# for ribbon plot, group by draw and calculate quantiles
+# (isn't base r fun?)
+ribb <- by(draws, list(draws$x), \(grp) {
+  qs <- unname(quantile(grp$y, c(0.025, 0.1, 0.9, 0.975)))
+  c(
+    x   = unique(grp$x)[1],
+    lwr = qs[1],
+    lwr2 = qs[2],
+    upr2 = qs[3],
+    upr = qs[4]
+  )
+})
+ribb <- as.data.frame(do.call(rbind, ribb))
+
+
+ggplot() +
+  geom_ribbon(data = ribb,
+              aes(x = x, ymin = lwr, ymax = upr),
+              fill = "red", color = NA,
+              alpha = 0.2) +
+  geom_ribbon(data = ribb,
+              aes(x = x, ymin = lwr2, ymax = upr2),
+              fill = "red", color = NA,
+              alpha = 0.2) +
+  geom_line(data = draws,
+            aes(x = x, y = y, group = draw),
+    alpha = 0.025, linewidth = 0.5) +
+  theme_minimal() +
+  labs(title = "GP - Ribbon (95% and 80%) and Spaghetti Plot",
+       x = "x",
+       y = "y")
+
+```
+
+
+# Gaussian Processes Modeling
+
+We aim to treat real data as a Gaussian process and use the data to inform which "paths" or functions make up the process - which is sometimes called Gaussian process regression, Gaussian process modeling, and many other names.  
+
+GP regression is a Bayesian method, and we will think of it through this lens.  
+But first we can take a step back and start simple. We know we essentially want to complete a "curve fitting exercise" to find a curve or function that approximates our data well.  
+
+In other words, we believe this model might be true:  
+$$
+y = f(x) + \epsilon
+$$
+And we really want to estimate $f(x)$, the true function that generates the data. $\epsilon$ is a noise term (in some cases we assume $\epsilon_i$ are iid $N(0, \sigma^2)$ random variables).  
+
+In reality, there will be some set of possible curves that could fit the noisy data equally well, and so we can instead build a **probability distribution** over this set. This is one element of the Bayesian nature of GP regression - our output will be a (posterior) probability distribution over possible functions of which we take draws to generate realized curves, as opposed to a single "best fit" curve. As covered nicely [here](https://betanalpha.github.io/assets/case_studies/gaussian_processes.html), this is really useful because it is extremely difficult to design function spaces that are both rich enough to capture the true function and not so large that they contain functions that exhibit undesirable behavior. "Gaussian processes define probabilistic models of functional behavior... by defining probability distributions over function spaces directly."  
+
+
+The other key element of Bayesian analysis is the specification of a prior distribution. In this case, we want to specify a prior that helps control what types of functions we sample. For example, we might want functions that are smooth, or that have a certain periodicity.  
+In GP regression, **we specify our prior over functions through specifying the covariance function.**  
+In order to fit a GP, we have to define the functional form of our covariance function, and there are many possible choices. As we will see, the choice of covariance function strongly dictates what the prior sample functions look like. Thus, which choice we make will have an influence on the final output of the GP regression.    
+In typical Bayesian fashion, the prior is combined with the data - i.e., the likelihood - to form the posterior distribution, as a result of Bayes' theorem.  
+
+To make this concrete, let's say that we want to model $\pi(y; f(x), \phi)$, the probability distribution of some outcome $y$ conditional on some function of covariates $f(x)$ and some parameters $\phi$.  
+"A Gaussian process can be used to define a prior model for the functional relationship $f$.  
+Conditioned on observed data, the posterior distribution for $f$ will quantify the functional behavior compatible with both the observed likelihood function and the Guassian process prior model" ([link](https://betanalpha.github.io/assets/case_studies/gaussian_processes.html)).  
+
+
+The posterior distribution of $f$ may not be a Gaussian process. It will only be so if $y \sim N(f(x), \sigma^2)$. In this case, the posterior distribution of $f$ is actually given by:  
+$$
+k_{post}(x_1, x_2) = k_{prior}(x_1, x_2) + \sigma^2 \delta_{x_1, x_2}
+$$
+Where $\delta = 1$ when $x_1 = x_2$ and $\delta = 0$ otherwise. In otherwords, we only add $\sigma^2$ to the diagonal of the covariance matrix when it operates on the "training data".  
+
+
+## Kernel Functions
+
+So it is clear that the covariance function or kernel is a critical element of Gaussian processes and GP regression, since a GP can be entirely defined by its covariance function and because the specific kernel function we pick acts as a prior over the space of possible functions that model our data.  
+
+Informally, a kernel function $k$ furnishes a notion of similarity between two points in the input space. If we expect that points which are nearby in the input space should have similar output values, the kernel function should reflect this (i.e., it should return a high value).  
+
+Some examples are given by these notes:  
+
+- <https://www.cs.cmu.edu/~epxing/Class/10708-15/notes/10708_scribe_lecture21.pdf>  
+- <https://hendersontrent.github.io/posts/2024/05/gaussian-process-time-series/>  
+
+To be a valid kernel function for a Gaussian process, the kernel must meet some requirements. Specifically, the kernel is valid if it produces a positive semi-definite covariance matrix when applied to the input data.  
+
+Formally, the Gram matrix is the matrix whose entries are given by $K_{ij} = k(x_i, x_j)$, where $k$ is the kernel function (so it is just the matrix that is produced by running your data through the kernel). The Gram matrix is positive semi-definite if for any vector $a \in \mathbb{R}^n$, $a^T K a \geq 0$. We say a *kernel* is PSD and thus valid for a GP if any Gram matrix produced by the kernel is PSD - i.e., if its Gram matrix is a covariance matrix. ([notes](https://www.cs.cmu.edu/~epxing/Class/10708-15/notes/10708_scribe_lecture21.pdf)).  
+
+An interesting point is that the *marginal variation* of function values at any given covariate value is determined by the diagonal evaluations of the covariance matrix. In other words, if you slice into the distribution over functions at a single covariate value $x_i$ so that you are looking at the marginal distribution, the resulting Gaussian distribution's variance is determined by the $i$-th diagonal of the covariance matrix. This makes sense, considering diagonal elements always correspond to variances (i.e., $k(x_i, x_i)$).  
+Likewise, the correlation between function values at different inputs is determined by the off-diagonal evaluations.  
+
+
+### Some kernel examples
+
+A very common kernel is the squared exponential kernel (a.k.a. the radial basis function or exponentiated quadratic):  
+
+$$
+k(x, x') = \sigma^2 \exp(-\frac{1}{2l^2}(x - x')^2)
+$$
+
+$\sigma^2$ is the variance or amplitude of the kernel - it determines the average distance of the function from its mean. It is essentially a scale factor, and most kernels have one. The paramater is also know as the marginal deviation, because it controls the marginal variability of function values at all the covariate values. If you want the sampled functions to be able to vary quite a bit around the function space, you would set $\sigma^2$ to be large.  
+
+$l$ is the *length-scale* of the process, which controls how quickly the correlations between function values decay. Practically this determines the wiggliness of the functions we sample. If $l$ is large, the functions will be smooth since each given $x$ value is correlated with near and far $x$ values, and if $l$ is small, the functions will be very wiggly since each given $x$ value is most strongly correlated with nearby values.  
+
+$\sigma^2$ and $l$ are considered hyperparameters of the model, and they can be chosen or - in practice - are estimated/optimized.  
+
+[Here](https://www.cs.cmu.edu/~epxing/Class/10708-15/notes/10708_scribe_lecture21.pdf) it is noted that since the functions drawn from a GP with this kernel are infinitely differentiable, the kernel is sometimes accused of being overly smooth and unrealistic for modeling many physical processes. Nevertheless, it is the most widely used.
+
+
+Below we can see how the kernel function transforms individual inputs.  
+
+```{r}
+# for demonstration
+kernel_sqexp <- function(x, xp, sigma_sq, l) {
+  sigma_sq * exp(-0.5 * (x - xp)^2 / l^2)
+}
+
+cov_sqexp <- function(x, xp, sigma_sq, l) {
+  n1 <- length(x)
+  n2 <- length(xp)
+  K <- matrix(0, nrow = n1, ncol = n2)
+  for (i in 1:n1) {
+    for (j in 1:n2) {
+      K[i, j] <- kernel_sqexp(x[i], xp[j], sigma_sq, l)
+    }
+  }
+  return(K)
+}
+
+# note, this is how the kernel function transforms individual inputs
+par(mfrow = c(2, 3))
+x <- seq(-4, 4, length.out = 100)
+sigmas <- c(0.5,1,10, 1,1,1)
+lenths <- c(1,1,1, 1,2,3)
+for (i in seq(length(sigmas))) {
+  plot(x, kernel_sqexp(0, x, sigma_sq = sigmas[i], l = lenths[i]),
+       type = "l",
+       xlab = "x", ylab = "k(x, 0)",
+       main = "",
+       sub = paste0(expression(sigma^2), " = ", sigmas[i], " | l = ", lenths[i]))
+}
+```
+
+We can examine the kernel a bit to get a better feel for its behavior and sample functions.  
+
+```{r}
+# generate a covariance matrix using the squared exponential kernel
+x <- seq(-2, 2, length.out = 100) ## input data
+K <- cov_sqexp(x, x, sigma_sq = 1, l = 1)
+
+# inspect the Gram matrix / covariance matrix
+K[1:5, 1:5]
+image(x, x, K, col = viridis::viridis(100), main = "Covariance matrix")
+isSymmetric(K)    ## symmetric?
+
+# sample multiple draws from the Gaussian
+## numeric(n) generates a vector of 0s length n
+y <- t(MASS::mvrnorm(n = 5, mu = numeric(length(x)), Sigma = K))
+y <- as.data.frame(y)
+names(y) <- paste0("draw_", 1:5)
+y$x <- x
+
+ggplot(y, aes(x = x, y = draw_1)) +
+  geom_line() +
+  geom_line(aes(x = x, y = draw_2), color = "red") +
+  geom_line(aes(x = x, y = draw_3), color = "blue") +
+  geom_line(aes(x = x, y = draw_4), color = "green") +
+  geom_line(aes(x = x, y = draw_5), color = "purple") +
+  labs(title = "5 draws from GP with squared exponential kernel",
+       x = "x", y = "y") +
+  theme_minimal()
+```
+
+Notice that to draw from the gaussian process we use the multivariate normal distribution function (`mvrnorm` generates random samples from the specified multivariate normal distribution).  
+The mean vector is the zero vector - as stated above, if we assume the mean function is 0, we only have to worry about the covariance structure, which then completely defines the GP.  
+The covariance matrix is the Gram matrix we calculated above by applying the kernel function to every 2-way combination of the elements of the input $x$.  
+
+```{r}
+#| code-fold: true
+#| figure-height: 12
+
+# function to sample from a GP
+sample_kernel <- function(ndraw, Sigma, mu = NULL) {
+  n <- nrow(Sigma)
+  if (is.null(mu))
+    mu <- numeric(n)
+  draws <- as.data.frame(
+    t(MASS::mvrnorm(n = ndraw, mu = mu, Sigma = Sigma))
+  )
+  # pivot longer
+  draws <- reshape(draws,
+                   direction = "long",
+                   varying = paste0("V", 1:ndraw), #V1,...
+                   v.names = "y",
+                   times = paste0("V", 1:ndraw),
+                   timevar = "draw")
+  draws <- transform(draws,
+                     draw = as.numeric(gsub("V", "", draw)))
+  row.names(draws) <- NULL
+  return(draws)
+}
+
+
+frames <- list()
+for (l in c(0.1, 1, 10)) {
+  K <- cov_sqexp(x, x, sigma_sq = 1, l = l)
+  y <- sample_kernel(5, K)
+  y$x <- x
+  y$l <- l
+  frames[[as.character(l)]] <- y
+}
+frames <- do.call(rbind, frames)
+p1 <- ggplot(frames, aes(x = x, y = y, color = as.factor(draw))) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~l, scales = "free_y",
+             labeller = as_labeller(\(x) paste("l =", x))
+             ) +
+  labs(title = "5 draws from GP with squared exponential kernel",
+       x = "x", y = "y", caption = "(sigma^2 = 1)") +
+  theme(legend.position = "none")
+
+
+frames <- list()
+for (sig in c(0.5, 1, 8)) {
+  K <- cov_sqexp(x, x, sigma_sq = sig, l = 1)
+  y <- sample_kernel(5, K)
+  y$x <- x
+  y$sigma2 <- sig
+  frames[[as.character(sig)]] <- y
+}
+frames <- do.call(rbind, frames)
+p2 <- ggplot(frames, aes(x = x, y = y, color = as.factor(draw))) +
+  geom_line(alpha = 0.5) +
+  facet_wrap(~sigma2, scales = "free_y",
+             labeller = as_labeller(\(x) paste("sigma^2 =", x))
+             ) +
+  labs(title = "",
+       x = "x", y = "y", caption = "(l = 1)") +
+  theme(legend.position = "none")
+
+p1 / p2
+```
+
+
+Another example useful in a time series context is the periodic kernel which can be used for periodic trends, like seasonality:  
+$$
+k(x, x') = \sigma^2 \exp\left(-\frac{2\sin^2(\pi(x - x')/p)}{l^2}\right)
+$$
+
+The new hyperparameter $p$ controls the periodicity of the function - i.e., the distance between repetitions in the function. In practice this would be extracted from the time series using some method.   
+
+```{r}
+kernel_periodic <- function(x, xp, sigma_sq, l, p) {
+  sigma_sq * exp(-2 * sin(pi * (x - xp) / p)^2 / l^2)
+}
+cov_periodic <- function(x, xp, sigma_sq, l, p) {
+  n1 <- length(x)
+  n2 <- length(xp)
+  K <- matrix(0, nrow = n1, ncol = n2)
+  for (i in 1:n1) {
+    for (j in 1:n2) {
+      K[i, j] <- kernel_periodic(x[i], xp[j], sigma_sq, l, p)
+    }
+  }
+  return(K)
+}
+K <- cov_periodic(x, x, sigma_sq = 1, l = 5, p = 1)
+
+image(K, col = viridis::viridis(nrow(K)),
+      xlab = "x", ylab = "x'", main = "Periodic kernel")
+
+sample_kernel(5, K) |>
+  ggplot(aes(x = id, y = y, color = as.factor(draw))) +
+  geom_line() +
+  labs(title = "Draws from GP with periodic kernel",
+       x = "x", y = "y", caption = "sigma^2 = 1 | l = 2 | p = 3") +
+  theme(legend.position = "none")
+```
+
+
+The tutorial focuses specifically on GP's in the time series context, which is convenient since we can consider time to be our single covariate. A neat feature of GP's is that multiple kernel functions can be used and then combined through multiplication or addition to generate a final kernel. Thus, different kernels can be used to model different components of a time series, and they can be combined to model the full series.  
+The tutorial notes that summation can be thought of as an *OR* procedure - e.g., if one kernel produces a large value for its inputs and the other a small value, the result is still a relatively large value. Multiplication can be thought of as an *AND* procedure - e.g., if one kernel produces a large value and one produces a very small value, the final value might be somewhere in-between.
+
+
+# Modeling data with a Gaussian Process
+
+
+Here we generate some data with periodicity, noise, and an upward trend. We will fit a GP to this data using the squared exponential kernel combined with a periodic kernel.  
+
+```{r}
+sim_ts_data1 <- function(n) {
+  # create periodicity, add noise, give upward trend
+  y <- 3 * sin(2 * seq(0, 4 * pi, length.out = n)) + runif(n) * 2
+  trend <- 0.08 * seq(1, n, by = 1)
+  y <- y + trend
+  dat <- data.frame(time = seq(n), y = y - mean(y))
+  return(dat)
+}
+dat <- sim_ts_data1(n = 100)
+
+ggplot(dat, aes(x = time, y = y)) +
+  geom_line() +
+  geom_point(size = 0.7) +
+  labs(title = "Simulated time series data")
+```
+
+
+Next we generate our covariance matrices. Recall that by specifying a covariance function, we are specifying the prior distribution over the space of possible functions. Thus, it is always good to plot draws from the prior distribution(s) to ensure they are reasonable and capture the desired behavior.  
+
+One option would be to combine multiple kernels. This makes a lot of sense in the time-series context. We could use a squared exponential kernel to model the trend, and a periodic kernel to model the seasonality.  
+
+```{r}
+#| code-fold: true
+plot_draws <- function(K, ndraw = 5) {
+  sample_kernel(ndraw, K) |>
+    ggplot(aes(x = id, y = y, color = as.factor(draw))) +
+    geom_line() +
+    theme(legend.position = "none")
+}
+```
+
+First we would create the trend kernel. Despite that we know the trend to be linear, we can still use the squared exponential kernel to model it since "it can model long-term smooth effects that may not necessarily be linear in other applications".  
+
+```{r}
+Sigma_sq <- cov_sqexp(dat$time, dat$time, sigma_sq = 1, l = nrow(dat))
+image(Sigma_sq, col = viridis::viridis(nrow(Sigma_sq)),
+      xlab = "x", ylab = "x'", main = "Trend kernel")
+```
+
+Next we create the periodic kernel. In the simulated data, we know that the period is about 25 because $2 \times 4 \times \pi \approx 25$.  
+In practice, this can be estimated from the data using methods like a Fourier transform (see the tutorial).  
+
+```{r}
+Sigma_periodic <- cov_periodic(dat$time, dat$time,
+                               sigma_sq = 1, l = 1, p = 25)
+
+image(Sigma_periodic, col = viridis::viridis(nrow(Sigma_periodic)),
+      xlab = "x", ylab = "x'", main = "Periodic kernel")
+```
+
+
+And now we can combine the kernels by summation.  
+
+```{r}
+Sigma_combined <- Sigma_sq + Sigma_periodic 
+
+plot_draws(Sigma_combined, ndraw = 10) +
+  labs(title = "Combined kernel, 10 draws")
+
+image(Sigma_combined, col = viridis::viridis(nrow(Sigma_combined)),
+      xlab = "x", ylab = "x'", main = "Combined kernel")
+```
+
+
+Now that we have specified reasonable priors over the space of functions, we can fit the GP to the data in order to estimate the posterior distribution.  
+
+
+Again, let's start by assuming we have data from $y = f(x) + \epsilon$, where $\epsilon \sim N(0, \sigma^2_n I)$.  
+
+We say $f(x) \sim \mathcal{GP}(m(x), k(x, x'))$.  
+This means that for all $N \in \mathbb{N}$, $(f(x_1), \dots, f(x_N)) \sim N(f_\mu, K)$, where $f_{\mu_i} = m(x_i)$ and $K_{ij} = k(x_i, x_j) = cov(f(x_i), f(x_j))$.
+
+
+Let $f_y$ be the vector of function values at the observed data points and $f_*$ be the vector of function values at the test points - theoretical future data our held-out data.  
+
+Then, $cov(f_y) = K(X, X) + \sigma^2_n I$
+
+So we can write the joint distribution of the observed target values - $f_y$ - and function values at the test points - $f_*$ - as: 
+$$
+\begin{bmatrix}
+f_y \\
+f_*
+\end{bmatrix} \sim N(0,
+\begin{bmatrix}
+K_\theta(X, X) + \sigma^2 I & K_\theta(X, X_*) \\
+K_\theta(X_*, X) & K_\theta(X_*, X_*)
+\end{bmatrix}
+)
+$$
+Let's break this down from left to right:  
+
+- Again, $f_y$ are our observed outcome values and $f_*$ are the function values at the test points.  
+- We are saying that the joint distribution of these two sets of function values is multivariate normal with mean 0 and a particular covariance matrix.  
+- The first element in the covariance matrix is the variance of $f_y$ (since it's on the corresponding diagonal). So this is determined by the kernel function evaluated at the observed data points, plus the constant $\sigma^2$ term applied to the diagonal.  
+- The next element in the top row is the covariance of $f_y$ and $f_*$. This is determined by the kernel function evaluated at the observed data points and the test points.  
+- The first element in the bottom row is practically the same since a covariance matrix is symmetric, but it is transposed so now we are looking at the covariance of $f_*$ with $f_y$.
+- The last element is the second diagonal - the variance of $f_*$. This is determined by the kernel function evaluated at the test points.  
+
+
+This is a slightly strange notion. In many prediction settings, we fit a model on training data and then evaluate it on test points. In the GP setting, our final model requires both training and test data. This is why it is sometimes considered a non-paramateric method - as we get more data, the number of parameters grows (think about how the covariance matrix grows with each additional train and test point).  
+
+
+
+From this we can derive the conditional distribution of the function values at the test points given the observed data and test data - this is the posterior distribution.  
+
+$$f_* | X, y, X_* \sim N(\bar{f_*}, cov(f_*))$$  
+
+- $$\bar{f_*} = K(X_*, X) ~ [K(X, X) + \sigma^2_n I]^{-1} ~ y$$
+
+- $$cov(f_*) = K(X_*, X_*) - K(X_*, X) ~ [K(X, X) + \sigma^2_n I]^{-1} ~ K(X, X_*)$$
+
+For a slightly more compact, alternative notation lets write:  
+$$
+\begin{bmatrix} y_1 \\ y_2 \end{bmatrix} \sim \mathcal{N} \left(
+  \begin{bmatrix} \mu_1 \\ \mu _2 \end{bmatrix},
+  \begin{bmatrix} \Sigma_{11} & \Sigma_{12} \\
+                  \Sigma_{21} & \Sigma_{22} \\
+  \end{bmatrix} \right)
+$$
+Now, say $\pi(y_2 | y_1, X_1, X_2) = N(\mu_{2|1}, \Sigma_{2|1})$.  
+
+- $\mu_{2|1} = \mu_2 + \Sigma_{21} \Sigma_{11}^{-1} (y_1 - \mu_1)$  
+  - ($\mu_1$ and $\mu_2$ drop out if we assume 0 means.)
+- $\Sigma_{2|1} = \Sigma_{22} - \Sigma_{21} \Sigma_{11}^{-1} \Sigma_{12}$
+
+
+Now these can be rewritten slightly to reduce the number of computations, taking advantage of some linear algebra:    
+
+- $\mu_{2|1} = (\Sigma_{11}^{-1} \Sigma_{12})^\top y_1$  
+  - (assuming 0 means)  
+- $\Sigma_{2|1} = \Sigma_{22} - (\Sigma_{11}^{-1} \Sigma_{12})^{\top} \Sigma_{12}$.
+
+
+This gives us a method for computing the mean and covariance of the posterior distribution. Once that is done we can use the mean "function" and covariance "function" to sample from a multivariate normal distribution to get a distribution over the function values at the test points (since we used the setup where the posterior is still a Gaussian process).  
+
+
+*Note: You are not required to include the noise term in your model but we generally do need to add some noise to the diagonal to avoid numerical issues.*    
+
+```{r}
+#' x1: initial covariate values
+#' y1: observed target values
+#' x2: test covariate values
+#' sigma_noise: standard deviation of the noise/error term in y = f(x) + e
+#' kernel_fn: kernel function used to compute covariance matrix
+#' ...: additional named arguments to be passed to kernel_fn
+gaussian_process <- function(x1,
+                             y1,
+                             x2 = x1,
+                             sigma_noise = sqrt(.Machine$double.eps),
+                             kernel_fn,
+                             ...) {
+  # variance of observed
+  K11 <- kernel_fn(x1, x1, ...) +
+    diag(sigma_noise^2, nrow = length(x1))
+  # covariance of observed and test
+  K12 <- kernel_fn(x1, x2, ...)
+  # covariance of test
+  K22 <- kernel_fn(x2, x2, ...)
+  # ((K11)^-1 * K12)^T
+  inv <- t(solve(K11) %*% K12)
+
+  # posterior mean: ((K11)^-1 * K12)^T * y1
+  up <- inv %*% y1
+  # posterior covariance: K22 - ((K11)^-1 * K12)^T * K12
+  sigmap <- K22 - (inv %*% K12)
+  return(list(u = up, sigma = sigmap))
+}
+```
+
+
+
+
+```{r}
+#| code-fold: true
+plot_gp_post <- function(gp, x1, y1, x2, ndraw = 5) {
+  draws <- MASS::mvrnorm(ndraw,
+                         mu = gp$u, Sigma = gp$sigma)
+  if (ndraw == 1) {
+    draws <- matrix(draws, ncol = length(draws))
+  }
+  draws <- as.data.frame(t(draws))
+  draws$x2 <- x2
+  # pivot longer
+  draws <- reshape(draws,
+                   direction = "long",
+                   varying = paste0("V", 1:ndraw), #V1,...
+                   v.names = "y",
+                   times = 1:ndraw,
+                   timevar = "draw")
+  row.names(draws) <- NULL
+  draws <- transform(draws,
+                     # marginal distributions are normal, 95% w/in 2 sigma
+                     lwr = y - 2 * sqrt(diag(gp$sigma)),
+                     upr = y + 2 * sqrt(diag(gp$sigma)))
+  
+  p <- ggplot(draws, aes(x = x2, y = y))
+  if (ndraw == 1) {
+    p <- p + geom_ribbon(
+      aes(ymin = lwr, ymax = upr, color = as.factor(draw)),
+                alpha = 0.1) +
+      geom_line(alpha = 0.5, aes(color = as.factor(draw)))
+    
+  } else if (ndraw <= 10) {
+    p <- p + geom_line(alpha = 0.5, aes(color = as.factor(draw)))
+  } else {
+    p <- p + geom_line(alpha = 0.01, aes(group = draw))
+  }
+  p + geom_point(data = data.frame(x = x1, y = y1),
+                 aes(x = x1, y = y1),
+                 color = "red", size = 1)
+}
+
+```
+
+
+To fit the GP we need to specify the $x_1$ and $y_1$ values and the $x_2$ values, while $y_2$ is unobserved.  
+
+Below, we simulate some data where $x_1$ can take on values between $0$ and $100$ and $y_1$ is a noisy function of $x_1$.  
+We only train on a small subset of the data, as though we don't observe the rest of it. Then we define $x_2$ as a discrete grid of relatively close-together points between $0$ and $100$. Then, after fitting the GP, we will have a posterior distribution over this whole range. This essentially uses the GP to interpolate.  
+Another possibility would be to use the GP to extrapolate to "future" values, e.g., to predict $y$ for $x$ greater than $100$.  
+
+Again, glossing over the estimation of hyperparameters, we define our prior kernel function as a sum of squared exponential and periodic kernels, feed in the data, calculate the mean function and covariance function for the posterior distribution, and use them to sample realizations.  
+
+```{r}
+s_noise <- 0.5    ## noise standard deviation
+ss_1 <- 0.5       ## squared exponential kernel variance
+ss_2 <- ss_1      ## period kernel variance
+l_1 <- 75         ## squared exponential kernel length-scale
+l_2 <- 1          ## periodic kernel length-scale
+p_1 <- 25         ## periodicity
+n_train <- 50     ## number of training points out of 100
+
+comb_cov_fn <- function(x, xp) {
+  cov_sqexp(x, xp, sigma_sq = ss_1, l = l_1) +
+    cov_periodic(x, xp, sigma_sq = ss_2, l = l_2, p = p_1)
+}
+
+dat_raw <- sim_ts_data1(100)
+dat <- dat_raw[sample(1:nrow(dat_raw), n_train), ]
+x2 <- seq(0, 100, length.out = 200)
+
+gp <- gaussian_process(x1 = dat$time,
+                       y1 = dat$y,
+                       x2 = x2,
+                       sigma_noise = s_noise,
+                       kernel_fn = comb_cov_fn)
+
+image(gp$sigma)
+
+plot_gp_post(gp, dat$time, dat$y, x2, ndraw = 1) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+plot_gp_post(gp, dat$time, dat$y, x2, ndraw = 10) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+It can be interesting to play with the hyperparameters of the kernel function to see how the posterior distribution changes.  
+The length-scale $l$ and periodicity $p$ parameters need to be within reasonable ranges or else the fit looks very bad. Once that is set, it is interesting to play around with the sigma parameters.    
+One extreme that can be fun to explore is to set the noise variance to a very small number but set the kernel's marginal variance/amplitude to a large number. Practically, this indicates that we believe our observed data has very little noise, but by choosing a large amplitude we allow the functions to vary widely across the function space. This results in some classic looking GP plots where the sampled functions are very tight around the observed data points and spread widely in the areas where little data exists, reflecting the greater uncertainty in those regions of covariate values where no data exists.  
+
+
+```{r}
+#| code-fold: true
+
+s_noise <- 0.005  ## noise standard deviation
+ss_1 <- 10        ## squared exponential kernel variance
+ss_2 <- ss_1      ## period kernel variance
+l_1 <- 75         ## squared exponential kernel length-scale
+l_2 <- 1          ## periodic kernel length-scale
+p_1 <- 25         ## periodicity
+n_train <- 10     ## number of training points out of 100
+
+comb_cov_fn <- function(x, xp) {
+  cov_sqexp(x, xp, sigma_sq = ss_1, l = l_1) +
+    cov_periodic(x, xp, sigma_sq = ss_2, l = l_2, p = p_1)
+}
+
+dat_raw <- sim_ts_data1(100)
+dat <- dat_raw[sample(1:nrow(dat_raw), n_train), ]
+x2 <- seq(0, 100, length.out = 200)
+
+gp <- gaussian_process(x1 = dat$time,
+                       y1 = dat$y,
+                       x2 = x2,
+                       sigma_noise = s_noise,
+                       kernel_fn = comb_cov_fn)
+
+
+plot_gp_post(gp, dat$time, dat$y, x2, ndraw = 500) +
+  geom_line(data = dat_raw, aes(x = time, y = y),
+            color = "blue", alpha = 0.25, linewidth = 0.5) +
+  labs(title = "Posterior realizations") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+TODO:
+
+- multivariate inputs  
+- stan, build up to hierarchical models with GPs  
+
+
+https://gaussianprocess.org/gpml/chapters/
+
+https://betanalpha.github.io/assets/case_studies/gaussian_processes.html
+
+
+
+
+
+
+
+
