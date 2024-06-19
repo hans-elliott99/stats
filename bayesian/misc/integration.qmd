@@ -1,0 +1,120 @@
+---
+title: "Integration in probability"
+author: "Hans Elliott"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+
+## Integration by sampling
+
+
+We can approximate an integral by sampling. For example, a definite integral can be computed using [Monte Carlo integration](https://en.wikipedia.org/wiki/Monte_Carlo_integration). Intuitively, if we have some curve, we can randomly sample many points from a domain with a known area that contains the curve (say, a box around the curve) and then calculate the proportion of points that fall below the curve, thereby approximating the area under the curve.
+
+```{r}
+runs <- 1e5
+radius <- 0.5
+
+x <- runif(runs, min = -radius, max = radius)
+y <- runif(runs, min = -radius, max = radius)
+in_circle <- (x^2 + y^2) <= radius^2
+
+plot(x,y,
+     pch='.',col=ifelse(in_circle,"blue","grey"),
+     xlab='',ylab='',asp=1,
+     main=paste("MC Approximation of Pi =", 4 * sum(in_circle/runs)))
+```
+
+In probability theory, integrals are fundamental in defining continuous probability distributions.  
+
+For example, the probability that a continuous random variable falls within a certain range is given by the integral of its probability density function (PDF) over that range:  
+$$
+p(a \leq X \leq b) = \int_a^b f(x) dx
+$$
+
+
+As an example, we can calculate an integral on the PDF of a $N(0,1)$ in R using a quadrature method provided in R's `stats` package:  
+
+```{r}
+integrate(dnorm, lower = -0.5, upper = 0.5)
+```
+
+
+But we can also approximate the integral by randomly sampling from a normal distribution. Say $X$ is a r.v. such that $X \sim N(0,1)$. We build up a collection of samples from the r.v. $Y = \text{I}(-0.5 \lt X \lt 0.5)$ which can be used to estimate quantities from the distribution of $Y$, like the expected value.  
+
+The expected value of any continuous random variable $Z$ is $E[Z] = \int z f(z) dz$, which can be approximated by the arithmetic mean of samples from the distribution of $X$.  
+But $Y$ is a function of another r.v., or $Y = g(X)$, so what is its expected value?  
+Based on [the law of the unconscious statistician](https://en.wikipedia.org/wiki/Law_of_the_unconscious_statistician), we can write the expected value of $Y$ as $E[Y] = \int g(x) f(x) dx$ (if $g$ is measurable and integrable), which means that for each value $x$ we just need to evaluate the function $g(x)$ and weight its output by the probability of $x$.  
+
+
+In this case, the expected value of $Y$ is:  
+$E[Y] = \int g(x) f(x) dx = \int \text{I}(-0.5 \lt y \lt 0.5) f(x) dx \approx \frac{1}{M} \sum_{i=1}^M \text{I}(-0.5 \lt y_{m} \lt 0.5)$, where $y_m \sim N(0,1)$. 
+
+So we can approximate this integral by randomly sampling from $N(0,1)$ and evaluating the function $g$ on each sample.  
+
+```{r}
+g <- function(x) {-0.5 < x & x < 0.5}
+mean(g(rnorm(1e6)))
+```
+
+[Estimating event probabilities](https://mc-stan.org/docs/stan-users-guide/posterior-prediction.html#estimating-event-probabilities) can be very useful in Bayesian analysis, for example for evaluating indicator functions on the posterior (or prior) predictive distributions for checks or tests.  
+
+
+## Marginalization
+
+In Bayesian analyses, we often need to "marginalize out" some dimension of a joint distribution.  
+Marginalization is the process by which a variable is removed from a joint distribution.  
+
+In the discrete case, if $P(A, B)$ is the joint distribution of $A$ and $B$, then $P(A) = \sum_B P(A, B)$ - we marginalize out $B$ by summing over all the events in $B$.  
+
+So in the continuous case, if $f(x, y)$ is the joint distribution of $X$ and $Y$, then the marginal distribution of $X$ is $f(x) = \int f(x,y) dy$ - we marginalize out $y$, or integrate over $y$.  
+
+
+We can appoximate this integral to obtain $f(x)$ by **sampling from the joint distribution and ignoring the values of $Y$**.  
+
+For example, if we have a trivariate normal distribution, $x_1, x_2, x_3 \sim N_3(\boldsymbol{\mu}, \boldsymbol{\Sigma})$, we can marginalize out each variable by sampling from the joint distribution and examining each variable in turn, while ignoring the others. Each should be approximately normally distributed.  
+
+```{r}
+#| fig.width=8, fig.height=8
+
+X <- MASS::mvrnorm(1e4, mu = c(0,0,0), Sigma = diag(1, nrow = 3, ncol = 3))
+
+par(mfrow = c(4,2))
+hist(X, main = "Joint distribution of x1, x2, x3")
+qqnorm(X, plot.it = TRUE)
+hist(X[,1], main = "Marginal distribution of x1")
+qqnorm(X[,1])
+hist(X[,2], main = "Marginal distribution of x2")
+qqnorm(X[,2])
+hist(X[,3], main = "Marginal distribution of x3")
+qqnorm(X[,3])
+
+```
+
+
+### Example: posterior predictive distribution
+
+For example, the posterior predictive distribution for a new observation $\tilde{y}$ given the data $y$ can be written as:
+
+$$p(\tilde{y}|y) = \int p(\tilde{y}, \theta |y) d\theta =  \int p(\tilde{y}|\theta) p(\theta|y) d \theta$$  
+(since $p(x,y) = p(x|y)p(y)$).  
+
+So we are interested in marginalizing out $\theta$ from the joint distribution of $\tilde{y}$ and $\theta$, given $y$, which requires integrating over $\theta$.  
+
+
+We can approximate this integral by random sampling. We generate samples from the posterior distribution of $\theta$ given $y$, and then for each sample of $\theta$, we generate a sample from the distribution of $\tilde{y}$ given $\theta$. To calculate quantities from $p(\tilde{y}|y)$, we just compute them over the samples of $\tilde{y}$ while ignoring the draws of $\theta$.  
+
+
+
+https://mc-stan.org/docs/stan-users-guide/posterior-prediction.html
+
+https://en.wikipedia.org/wiki/Posterior_predictive_distribution
+
+https://math.stackexchange.com/questions/3236982/marginalizing-by-sampling-from-the-joint-distribution
+
+http://bebi103.caltech.edu.s3-website-us-east-1.amazonaws.com/2020b/content/homework/hw1/hw1.2.html
+
+
+

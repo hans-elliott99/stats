@@ -779,20 +779,20 @@ plot_gp_post(gp, dat$time, dat$y, x2, ndraw = 500) +
 
 ```
 
+
 TODO:
 
 - multivariate inputs  
+  - first look at: https://bookdown.org/rbg/surrogates/chap5.html (section 5.1.2) 
+  - ARD: https://stats.stackexchange.com/questions/540747/kernel-design-for-gaussian-processes-with-multiple-inputs  
+  - Also mentioned here: https://www.cs.toronto.edu/%7Eduvenaud/cookbook/  
+  - https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf  
+
+
 - stan, build up to hierarchical models with GPs  
+  - https://betanalpha.github.io/assets/case_studies/gaussian_processes.html
 
 
 https://gaussianprocess.org/gpml/chapters/
-
-https://betanalpha.github.io/assets/case_studies/gaussian_processes.html
-
-
-
-
-
-
 
 

@@ -1,6 +1,13 @@
 
 # personal stats notes
 
-[View some html notes with code](https://htmlpreview.github.io/?https://raw.githubusercontent.com/hans-elliott99/stats/main/index.html)
 
+
+## notes to self:
+
+Simon Wood's website has a lot of great notes:  
+<https://www.maths.ed.ac.uk/~swood34/>
+
+And here's his course on statistical programming which covers some interesting topics like how drawing random variables is actually simulated by a computer:  
+<https://statprog-s1-2020.github.io/>
 

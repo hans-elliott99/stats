@@ -1,0 +1,297 @@
+---
+title: ""
+author: "Hans Elliott"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+```{r}
+set.seed(1614)
+
+library(data.table)
+library(ggplot2)
+library(patchwork)
+library(lme4)
+
+library(rstan)
+```
+
+## Simple normal-theory linear regression
+
+$$
+y_i = \alpha_i + x_i \beta + \epsilon_i \\
+\epsilon_i \sim N(0, \sigma_{\epsilon}^2) \\
+y_i \sim N(\alpha + x_i \beta, \sigma_{\epsilon}^2) \\
+$$
+
+### Sim Data:  
+
+```{r}
+sim1 <- list(
+  N = 100,
+  # predictors
+  x = rnorm(100, 0, 3),
+  # dgp
+  alpha = -1,
+  beta = 3.5,
+  sigma_eps = 5
+)
+sim1 <- within(sim1, {
+  y <- alpha + x * beta + sigma_eps * rnorm(N)
+})
+with(sim1, plot(x, y))
+
+
+# analytic estimation: 
+## estimate beta
+with(sim1, {
+  Xmod <- cbind(1, x) # model/design mat
+  
+  message("beta_hat:")
+  print(beta_hat <- solve(t(Xmod) %*% Xmod) %*% t(Xmod) %*% y)
+  ## estimate sigma_eps
+  message("sigma_eps:")
+  print(sigma_eps_hat <- sqrt(sum((y - Xmod %*% beta_hat)^2) / (N - ncol(Xmod))))
+})
+```
+
+
+```{r}
+stanmod1_code <- "
+data {
+  int<lower=0> N; // N observations
+  vector[N] y;
+  vector[N] x;
+}
+parameters {
+  real alpha;               // intercept
+  real beta;                // slope coefficient
+  real<lower=0> sigma_eps;  // error distribution's std. dev.
+}
+model {
+  // priors
+  //beta ~ normal(0, 1);
+  //sigma_eps ~ cauchy(0, 1);
+  y ~ normal(alpha + beta * x, sigma_eps);
+}
+generated quantities {
+  // simulate data from posterior predictive distribution
+  vector[N] y_rep;
+  for (i in 1:N)
+    y_rep[i] = normal_rng(alpha + beta * x[i], sigma_eps);
+}
+"
+message("Compiling stan model")
+stanmod1 <- stan_model(model_code = stanmod1_code)
+```
+
+
+```{r}
+stanmod1_data <- list(
+  N = sim1$N,
+  y = as.numeric(sim1$y),
+  x = as.numeric(sim1$x)
+)
+
+fit1 <- sampling(
+  stanmod1,
+  data = stanmod1_data,
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  cores = 4,
+  verbose = FALSE,
+  seed = 123
+)
+rstan::get_elapsed_time(fit1)
+rstan::check_hmc_diagnostics(fit1)
+
+rstan::stan_mcse(fit1) + rstan::stan_ac(fit1,
+                                        pars = c("alpha", "beta", "sigma_eps"))
+rstan::stan_ess(fit1) + rstan::stan_rhat(fit1)
+rstan::stan_diag(fit1)
+rstan::stan_scat(fit1, pars = c("sigma_eps", "beta"))
+
+print(fit1, pars = c("alpha", "beta", "sigma_eps"))
+plot(fit1, pars = c("alpha", "beta", "sigma_eps"))
+traceplot(fit1, pars = c("alpha", "beta", "sigma_eps"), ncol = 1)
+
+
+rstan::stan_hist(fit1, pars = c("alpha", "beta", "sigma_eps"))
+# rstan::stan_dens(fit1, pars = c("alpha", "beta", "sigma_eps"))
+```
+
+
+We've used the "generated quantities" block in the Stan code to produce samples from the posterior predictive distribution $p(y^{rep} | y)$.  
+
+Below we can compare several draws of $y^{rep}$ to the observed $y$ values.  
+
+```{r}
+fit1_ss <- extract(fit1, permuted = TRUE)
+
+postp_check <- data.table(x = sim1$x, y = sim1$y)
+postp_check <- cbind(postp_check, t(fit1_ss$y_rep[1:11, ]))
+postp_check <- melt(postp_check, id.vars = "x", variable.name = "draw")
+postp_check <- transform(postp_check, draw = factor(gsub("V", "", draw),
+                                                    levels = c("y", 1:11)))
+
+ggplot(postp_check, aes(x = value)) +
+  geom_histogram(bins = 20) +
+  facet_wrap(~draw, scales = "fixed") +
+  theme_minimal() +
+  labs(title = "Posterior predictive check",
+       subtitle = "y and 11 draws of y_rep",
+       x = "")
+
+ggplot() +
+  geom_density(data = postp_check[draw != "y"],
+               aes(x = value, group = draw, color = "y_rep"),
+               key_glyph = draw_key_smooth) +
+  geom_density(data = postp_check[draw == "y"],
+               aes(x = value, color = "y"),
+               linewidth = 1, key_glyph = draw_key_smooth) +
+  scale_color_manual(values = c("y_rep" = alpha("black", 0.25), "y" = "red")) +
+  labs(title = "Posterior predictive densities vs. observed data",
+       subtitle = "y and 11 draws of y_rep",
+       color = "",
+       x = "",
+       y = "density") +
+  theme_minimal()
+
+```
+
+
+
+```{r}
+## In 'generated quantities', we've simulated y values conditional on x values
+## by simulating the data generating process:  
+## For each x value, y is drawn from a normal distribution where the mean is a
+## linear function of x, and the standard deviation is independent of x (and mu).
+## It goes further though, since the coefficients - alpha and beta - are also
+## drawn from their posterior distributions, simulating the uncertainty we have
+## about them. And the error distribution's standard deviation is also drawn from
+## its posterior distribution, again reflecting the uncertainty about this
+## parameter.
+summ <- t(apply(fit1_ss$y_rep, 2, # n_draws X n_obs
+                 quantile, c(0.025, 0.5, 0.975)))
+summ <- as.data.frame(summ)
+names(summ) <- c("lo", "med", "hi")
+summ$x <- sim1$x
+
+ex_draws <- as.data.table(t(fit1_ss$y_rep[1:5, ]))
+ex_draws[, x := sim1$x]
+ex_draws <- melt(ex_draws, id.vars = "x")
+
+p1 <- ggplot(summ, aes(x = x)) +
+  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.2) +
+  geom_line(aes(y = med), color = "blue", linewidth = 1) +
+  geom_point(mapping = aes(x = sim1$x, y = sim1$y), alpha = 0.5) +
+  geom_line(data = ex_draws, aes(x = x, y = value, group = variable),
+            alpha = 0.2)
+p1
+
+# p1 +
+#   geom_smooth(data = data.frame(x = sim1$x, y = sim1$y),
+#               mapping = aes(x = x, y = y),
+#               method = "lm", formula = y ~ x, se = FALSE,
+#               color = "red", fill = "red", linetype = "dashed")
+#   
+
+```
+
+```{r}
+## We also have draws for each of the parameters.
+## We could use these to simulate random lines by sampling random alphas and
+## betas to produce a random line equation.
+## This utilizes the uncertainty in the parameters - namely alpha and beta - but
+## ignore the uncertainty from the sampling distribution y ~ N(mu, sigma),
+## both because it doesn't incorporate the uncertainty in sigma, and because it
+## doesn't simulate the stochastic nature of the data generating process.
+##
+## In other words - if y = alpha + beta * x, this is acceptable, since this
+## implies y is deterministic once alpha and beta are simulated, but that is not
+## what we are really modeling.
+##
+
+alphas <- fit1_ss$alpha[1:10]
+betas <- fit1_ss$beta[1:10]
+
+df <- data.table(x = sim1$x)
+for (i in 1:10) {
+  df[, paste0("draw_", i) := alphas[i] + betas[i] * sim1$x]
+}
+df <- melt(df, id.vars = "x", value.name = "y")
+ggplot(df, aes(x = x, y = y, group = variable)) +
+  geom_line(alpha = 0.2) +
+  theme_minimal()
+
+```
+
+
+
+
+
+################
+
+
+$$
+y_{i,j} = \beta x_i + \beta_{0,j} \\
+\beta_{0,j} = \beta_0 + z_{0,j} \sigma_0
+
+$$
+
+- $\beta$ is a fixed effect - it does not vary by group.  
+- $\beta_{0,j}$ is a random effect - it varies depending on group $j$.  
+- $\beta_{0,j}$ can be expanded so that we see it is the global intercept plus some group-specific deviation. $z_{0,j}$ is a standard normal r.v. so multiplying it by standard deviation $\sigma_0$ gives us a random effect that is normally distributed with mean $\beta_0$ and variance $\sigma_0^2$.  
+  - We can think of this as modeling the variance across groups in the broader population that was sampled from. Each observed group will have a different $\beta_{0,j}$ since they are realizations of a random variable - i.e., they are uncertain. But they are all draws from the same population distribution.  
+
+
+```{r}
+
+# example: repeated measurements from a population with one level of grouping
+n_subjects <- 10
+n_reps <- 10
+n_obs <- n_subjects * n_reps
+
+
+#
+# parameters
+#
+sim1 <- list(
+  n_subjects = n_subjects,
+  n_reps = n_reps,
+  subject_ids = rep(1:n_subjects, each = n_reps),
+  beta = 5,
+  beta_0 = 0,
+  sigma_0 = 0.25,
+  z_0 = rnorm(n_subjects, 0, sigma_0)
+)
+
+sim_y <- function(x, sim) {
+  # calculate y
+  y <- sim$beta * x + sim$beta_0 + sim$z_0[sim$subject_ids]
+}
+
+
+ex <- data.frame(
+  x = rnorm(n_obs, 0, 1),
+  id = sim1$subject_ids
+)
+ex$y <- sim_y(ex$x, sim1)
+ggplot(ex, aes(x, y, color = factor(id))) + geom_point()
+
+
+lmer(y ~ x + (1 | id), data = ex)
+
+
+
+
+```
+
+
+
+
+
+
