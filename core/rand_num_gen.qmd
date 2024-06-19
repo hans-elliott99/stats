@@ -1,0 +1,351 @@
+---
+title: "Generating random numbers"
+author: "Hans Elliott"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+```{r}
+set.seed(123)
+library(data.table)
+library(ggplot2)
+library(patchwork)
+```
+
+These notes pull from these sources:  
+
+- Simon Wood has a [course on statistical programming](https://statprog-s1-2020.github.io/) and a related appendix in his Core Statistics book on random number generation.  
+
+A computer cannot actually produce random numbers, but thanks to some math we can produce what are often called **pseudo-random numbers** - which are sequences of numbers that are actually *completely deterministic* but that appear indistinguishable from a random sequence with respect to statistical properties that we want to test.
+
+It turns out that we can produce pseudo-random numbers from most distributions by first generating pseudo-random numbers for a $\text{Uniform}(0, 1)$, since once we have a stream of i.i.d. $U(0,1)$ deviates we can use the inverse CDF to map them to deviates from other distributions.  
+
+This is an intuitive idea, but in *Core Statistics*, Wood writes that there are better methods than inversion for most standard distributions - with the exception of the exponential. As a result, the inversion method is generally not what R is doing under the hood.  
+
+
+## Simulating random numbers by inversion
+
+For example, imagine we want to generate a random number from a $\text{Normal}(0, 1)$ distribution and we don't have access to the `rnorm` function (which would do just that), but we do have access to the `runif` function which generates random numbers from a $\text{Uniform}(a,b)$ distribution, $\text{U}(0,1)$ by default.  
+
+Generating a $\text{U}(0,1)$ deviate guarantees a number between $0$ and $1$, which we can then treat as a probability.  
+
+Recall that a random variable $X$ has a cumulative distribution function (CDF) that gives the $P(X \leq x)$, where $x$ is a particular value, or "quantile".  
+
+So $x$ can be any value that is possible for the random variable $X$, and the CDF maps $x$ to a probability, of course between $0$ and $1$, suggesting that if we could inverse this mapping to go from a probability to a value of $x$, then we could convert a $U(0,1)$ deviate into a deviate from $X$'s distribution.  
+
+Indeed a straightforward strategy is to sample a value $u$ from $U(0,1)$ and pass the value through the inverse CDF, or the "quantile function".  
+
+This is visualized clearly by the figure below. The black line represents the CDF of a $\text{Normal}(0, 1)$ distribution, often called $\Phi$. The red points represent a few random samples from a $\text{U}(0,1)$ distribution, and the red dashed lines show where these points meet the CDF. The blue dashed lines show where the inverse CDF, $\Phi^{-1}$, maps these points.  
+
+```{r}
+#| code-fold: true
+#| warning: false
+
+## randomly sample a few uniform(0,1) deviates,
+## which represent a random choice of probability that X <= x, for r.v. X
+unif_sample <- data.frame(
+  x = -3,
+  u = runif(n = 4, min = 0, max = 1)
+)
+unif_sample$group <- 1:nrow(unif_sample)
+
+## to draw lines to the CDF, calculate where on the x-axis the uniform deviates
+##    meet the CDF, using the quantile function/inverse CDF
+unif_endpoints <- data.frame(
+  x = qnorm(unif_sample$u),
+  u = unif_sample$u,
+  group = unif_sample$group
+)
+
+## to draw where the inverse of the CDF maps the uniform deviates:
+xax_points <- data.frame(
+  x = unif_endpoints$x,
+  u = 0,
+  group = unif_endpoints$group
+)
+
+## to draw a Normal(0, 1) CDF over a range of possible x values
+xval <- seq(unif_sample$x[1], abs(unif_sample$x[1]), length.out = 1000)
+gauss_cdf <- data.frame(
+  x = xval,
+  y = pnorm(xval, mean = 0, sd = 1) ## CDF
+)
+
+ybr <- c(0, round(unif_sample$u, 2), 1)
+ggplot(gauss_cdf, aes(x = x, y = y)) +
+  geom_line() +
+  geom_point(data = unif_sample, aes(x = x, y = u, color = "U(0,1)")) +
+  geom_line(data = rbind(unif_sample, unif_endpoints),
+            aes(x = x, y = u, group = group, color = "U(0,1)"),
+            linetype = 2) +
+  geom_line(data = rbind(unif_endpoints, xax_points),
+            aes(x = x, y = u, group = group, color = "N(0,1)"),
+            linetype = 2) +
+  geom_point(data = xax_points, aes(x = x, y = u, color = "N(0,1)")) +
+  annotate("text", x = 2.9, y = 0.95, label = expression(Phi), size = 6) +
+  scale_x_continuous(labels = round(xax_points$x, 1), breaks = xax_points$x) +
+  scale_y_continuous(labels = ybr, breaks = ybr) +
+  scale_color_manual(breaks = c("U(0,1)", "N(0,1)"),
+                     values = c("red", "blue")) +
+  labs(
+    title = "Transforming Uniform(0, 1) deviates into Normal(0, 1) deviates",
+    x = "x",
+    y = "P(X <= x)",
+    color = ""
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    axis.title.y = element_text(angle = 0, vjust = 0.98),
+  )
+```
+
+```{r}
+#| code-fold: true
+#| message: false
+
+X <- qnorm(runif(10000))
+Xr <- rnorm(10000)
+
+p1 <- ggplot(data.frame(X = X), aes(x = X)) +
+  geom_histogram() +
+  labs(
+    title = "10,000 random samples from N(0, 1)",
+    x = "x",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+p2 <- ggplot() +
+  geom_density(aes(x = X, color = "Inversion")) +
+  geom_density(aes(x = Xr, color = "rnorm")) +
+  labs(
+    x = "x",
+    y = "Density",
+    color = ""
+  ) +
+  theme_minimal()
+
+p1 + p2
+```
+
+
+For discrete random variables, we can use the "generalized inverse" for CDF $F$ defined as:  
+$$
+F^{-1}(u) = \inf\{x \in \mathbb{R} : F(x) \geq u\}
+$$
+since for a $\text{Uniform}(0,1)$ deviate $U$, $\mathbb{P}(F^{-1}(U) \le x) = \mathbb{P}(U \le F(x))$.  
+This corresponds to obtaining the smallest $x$ such that $F(x)$ is greater than or equal to the value $u$.  
+
+
+Looking at the figure below, the black lines represent the discrete CDF of the Poisson distribution with parameter $\lambda = 5$. Again, the red points are random $U(0,1)$ deviates and the $blue$ points show the corresponding Poisson deviates.  
+
+
+
+```{r}
+#| code-fold: true
+#| message: false
+#| warning: false
+
+lambda <- 5
+
+## poisson cdf
+xval <- rep(0:20, each = 2)[-1]
+xval <- xval[-length(xval)]
+poisson_cdf <- data.frame(
+  x = xval,
+  y = ppois(xval, lambda = lambda),
+  group = rep(1:(length(xval)/2), each = 2)
+)
+## horizontal line points
+poisson_cdf <- within(poisson_cdf, {
+  yshift <- shift(y, 1, type = "lag")
+  yhoriz <- y
+  repix <- seq(2, nrow(poisson_cdf), by = 2)
+  yhoriz[repix] <- yshift[repix]
+})
+## vertical line points
+poisson_cdf$xshift <- shift(poisson_cdf$x, 1, type = "lead")
+
+## uniform deviates
+unif_sample <- data.frame(
+  x = 0,
+  # p = runif(n = 4, min = 0, max = 1)
+  ## choose for sake of example
+  u = c(0.43, 0.53, 0.7, 0.75)
+)
+unif_sample$group <- 1:nrow(unif_sample)
+
+unif_endpoints <- data.frame(
+  x = qpois(unif_sample$u, lambda = lambda),
+  u = unif_sample$u,
+  group = unif_sample$group
+)
+xax_points <- data.frame(
+  x = unif_endpoints$x,
+  u = 0,
+  group = unif_endpoints$group
+)
+
+
+ggplot() +
+  # cdf
+  geom_line(data = poisson_cdf,
+            aes(x = x, y = yhoriz, group = group)) +
+  geom_point(data = poisson_cdf[seq(1, nrow(poisson_cdf), by = 2), ],
+             aes(x = x, y = yhoriz)) +
+  ## geom_line(data = poisson_cdf,
+  ##            aes(x = xshift, y = y, group = group),
+  ##           linetype = "dashed") +
+  # uniform deviates
+  geom_point(data = unif_sample, aes(x = x, y = u, color = "U(0,1)")) +
+  # connecting lines
+  geom_line(data = rbind(unif_sample, unif_endpoints),
+            aes(x = x, y = u, group = group, color = "U(0,1)"),
+            linetype = 2) +
+  geom_line(data = rbind(unif_endpoints, xax_points),
+            aes(x = x, y = u, group = group, color = "Poisson(5)"),
+            linetype = 2, alpha = 0.25) +
+  # poisson deviates
+  geom_point(data = xax_points, aes(x = x, y = u, color = "Poisson(5)")) +
+  # aesthetics
+  annotate("text", x = 16, y = 0.95, label = expression(F(x)), size = 5) +
+  scale_x_continuous(labels = round(xax_points$x, 1), breaks = xax_points$x) +
+  scale_y_continuous(labels = round(c(0, unif_sample$u, 1), 2),
+                     breaks = c(0, unif_sample$u, 1)) +
+  scale_color_manual(breaks = c("U(0,1)", "Poisson(5)"),
+                     values = c("red", "blue")) +
+  labs(
+    title = "Transforming Uniform(0, 1) deviates into Poisson(5) deviates",
+    x = "x",
+    y = "P(X <= x)",
+    color = ""
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    panel.grid.minor = element_blank(),
+    axis.title.y = element_text(angle = 0, vjust = 0.98),
+  )
+
+```
+
+So pick a random number between $0$ and $1$ - say $0.53$. Next we need to calculate $F^{-1}(0.53)$ to obtain a Poisson deviate.  
+According to the definition of the generalized inverse, this value will be the smallest $x$ such that $F(x) >= 0.53$.  
+We can see that at $x = 5$, the CDF $F(x)$ jumps from about $0.44$ to about $0.62$, where it remains until $x = 6$. So the $\text{Poisson}(5)$ deviate corresponding to probability $0.53$ is $x = 5$.  
+
+```{r}
+ppois(4, lambda = 5)
+ppois(5, lambda = 5)
+```
+
+
+
+## Generating uniform deviates
+
+At a basic level, we want a pseudo-random number generator that produces a sequence of numbers that are uncorrelated, so that the generated sequence models an i.i.d. sequence of $U(0,1)$ deviates very well.  
+
+One common method is called the *linear congruential generator* (LCG), where the sequence is defined as:  
+$$
+X_{i+1} = (a X_i + b) \mod M
+$$
+
+The idea is to take some integer, multiply it by some very large constant, rewrite it using some large base $M$, and throw away everything except for what comes after the decimal to use as a new integer.
+
+For example:  
+$$
+X_{i+1} = (69069 X_{i} + 1) \mod 2^{32}
+$$
+
+is considered to be one of the better simple congruential generators.  
+
+The first integer $X_0$ is called the "seed", and determines where in the sequence we start.  
+
+
+Here is an example of an LCG with poorly chosen parameters. In 1 dimension it looks random, but comparing triples of points $(U_{i}, U_{i-1}, U_{i-2})$ shows that the deviates are not uniformly distributed in 3 dimensions.  
+
+
+```{r}
+# linear congruential generator
+lcg <- function(n, a = 69069, b = 1, M = 2^32, seed = 1) {
+  x <- numeric(n)
+  x[1] <- seed
+  if (n == 1)
+    return(((a * x + b) %% M) / M)
+  for (i in 2:n) {
+    x[i] <- (a * x[i - 1] + b) %% M
+  }
+  x / M
+}
+
+n <- 100000
+U <- lcg(n, a = 65539, b = 0)
+```
+
+```{r}
+#| code-fold: true
+
+Udat <- data.frame(u1=U[1:(n-2)],u2=U[2:(n-1)],u3=U[3:n])
+
+## looks random enough
+par(mfrow = c(1, 3))
+hist(Udat$u1, main = "Histogram")
+qqplot((1:1000)/1000, sort(Udat$u1),
+       pch = ".", xlab = "Uniform quantiles", ylab = "U", main = "Q-Q Plot")
+plot(Udat$u2, Udat$u1, pch = ".",
+     main = expression(U[i-1] ~ "vs" ~ U[i]))
+```
+
+```{r}
+#| code-fold: true
+lattice::cloud(
+  u1 ~ u2 * u3,
+  data = Udat,
+  pch = ".",
+  col = 1,
+  screen = list(z = 40, x = -60, y = 0),
+  zlab = expression(U[i-2]),
+  xlab = expression(U[i-1]),
+  ylab = expression(U[i])
+)
+```
+
+Using the better parameters $a = 69069$ and $b=1$ gives:  
+
+```{r}
+#| code-fold: true
+n <- 100000
+U <- lcg(n, a = 69069, b = 1)
+Udat <- data.frame(u1=U[1:(n-2)],u2=U[2:(n-1)],u3=U[3:n])
+
+lattice::cloud(
+  u1 ~ u2 * u3,
+  data = Udat,
+  pch = ".",
+  col = 1,
+  screen = list(z = 40, x = -60, y = 0),
+  zlab = expression(U[i-2]),
+  xlab = expression(U[i-1]),
+  ylab = expression(U[i])
+)
+```
+
+
+Alternative to congruential generators are those that generate random sequences of 0s and 1s, sometimes called shift-register generators.  
+
+The popular *Mersenne Twister* generator is of this type. It is the default in R, and recommended as a general purpose generator.  
+
+```{r}
+base::RNGkind(kind = "default")
+base::RNGkind()[1]
+```
+
+
+Example implementation here:  
+<https://github.com/ESultanik/mtwister>  
+
+
+
