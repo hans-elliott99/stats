@@ -1,0 +1,242 @@
+---
+title: "Integration in probability"
+author: "Hans Elliott"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+```{r}
+library(ggplot2)
+library(data.table)
+library(rstan)
+```
+
+
+## AR(1) Panel Model
+
+For individual $i$ in group $j$ at time $t$:  
+
+$$y_{ij,t} = \alpha + \gamma_j y_{ij,t-1} + \epsilon_i$$
+$$\epsilon_i \sim N(0, \sigma^2)$$
+So:
+$$y_{ij,t} \sim N(\alpha + \gamma_j y_{ij, t-1}, \sigma^2)$$
+So that the correlation between an observation and its lag varies by group.  
+
+Below I use a different $\gamm_j$ parameter for each group, and they are unrelated to each other. This is equivalent to interacting an indicator for group with the lagged variable, so not a hierarchical model really. In other words, there is no pooling across groups to estimate the slopes for the effect of the lagged variable.  
+
+
+```{r}
+dat <- within(list(), {
+    N <- 50
+    J <- 5
+    t <- rep(1:N, times = J)
+    g <- as.factor(rep(1:J, each = N))
+    alpha <- 0
+    beta <- 0.9
+    gamma <- rnorm(5, beta, 0.1)
+    gamma <- rep(gamma, each = N)
+    sigma <- 0.1
+    y <- unlist(lapply(1:5, function(.) {
+        yij <- numeric(50)
+        yij[1] <- rnorm(1, 0, sigma)
+        for (i in 2 : N) {
+            yij[i] <- alpha +
+                      yij[i-1] * gamma[i] +
+                      rnorm(1, 0, sigma)
+        }
+        return(yij)
+    }))
+    rm(N, J, alpha, beta, sigma)
+})
+dat <- as.data.frame(dat)
+
+ggplot(dat, aes(x = t, y = y, color = g)) + 
+    geom_line() +
+    geom_point(size = 1)
+
+```
+
+```{r}
+ar1_stancode <- function() {"
+data {
+  int<lower=0> N; // total number of observations
+  int<lower=0> J; // number of groups
+  vector[N] y;    // observations
+  int g[N];    // group indicator
+  int t[N];    // time indicator
+}
+parameters {
+    real alpha;
+    real gamma[J];
+    real<lower=0> sigma;
+}
+model {
+    alpha ~ normal(0, 2);
+    sigma ~ normal(0, 2);
+    gamma[1:5] ~ normal(0, 1);
+    for (i in 1:N) {
+        if (t[i] == 1) {
+            continue;
+        }
+        y[i] ~ normal(alpha + y[i-1] * gamma[g[i]], sigma); 
+    }
+}
+generated quantities {
+    vector[N] y_rep;
+    for (i in 1:N) {
+        if (t[i] == 1) {
+            y_rep[i] = y[i];
+            continue;
+        }
+        y_rep[i] = normal_rng(alpha + y[i-1] * gamma[g[i]], sigma);
+    }
+}
+"}
+
+```
+
+
+```{r}
+ar1_stanmod <- rstan::stan_model(model_code = ar1_stancode())
+
+d <- list(
+    N = nrow(dat),
+    J = length(unique(dat$g)),
+    y = dat$y,
+    g = as.integer(dat$g),
+    t = as.integer(dat$t)
+)
+ar1_fit <- sampling(ar1_stanmod, data = d,
+                    chains = 4, iter = 2000, warmup = 1000, thin = 1,
+                    seed = 123)
+
+print(ar1_fit, pars = c("alpha", "gamma", "sigma"))
+```
+
+```{r}
+rstan::stan_plot(ar1_fit, pars = c("alpha", "gamma", "sigma"))
+rstan::stan_ess(ar1_fit, pars = c("alpha", "gamma", "sigma"))
+rstan::traceplot(ar1_fit, pars = c("alpha", "gamma", "sigma"))
+rstan::stan_dens(ar1_fit, pars = c("alpha", "gamma", "sigma"))
+
+rstan::stan_diag(ar1_fit)
+rstan::stan_ac(ar1_fit, pars = c("alpha", "gamma", "sigma"))
+rstan::stan_mcse(ar1_fit, pars = c("alpha", "gamma", "sigma"))
+```
+
+
+```{r}
+ar1_rep <- rstan::extract(ar1_fit, permuted = TRUE, pars = "y_rep")[["y_rep"]]
+
+summ <- t(apply(ar1_rep, 2, quantile, c(0.025, 0.5, 0.975)))
+colnames(summ) <- c("lo", "med", "hi")
+summ <- as.data.frame(cbind(summ, t = dat$t, g = dat$g))
+summ$g <- as.factor(summ$g)
+ggplot(summ, aes(x = t, y = med, color = g, fill = g, group = g)) +
+    geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.25, color = NA) +
+    geom_line() +
+    geom_point(data = data.frame(y = d$y, t = d$t, g = as.factor(d$g)),
+               aes(x = t, y = y, color = g), size = 1, shape = 1) +
+    facet_wrap(~ g, scales = "free_y")
+
+```
+
+
+
+A hierarchical model assumes that the effect of the lagged variable varies by group but is drawn from a common distribution (an "effect distribution" in this case).
+
+$$
+\begin{aligned}
+y_{ij,t} & = \alpha + \gamma_j y_{ij,t-1} + \epsilon_i \\
+\gamma_j & \sim N(\mu, \tau^2) \\
+\epsilon_i & \sim N(0, \sigma^2) \\
+\tau^2 & \sim prior \\  
+\sigma^2 & \sim prior
+
+\end{aligned}
+$$
+
+```{r}
+ar1_hier_stancode <- function() {"
+data {
+  int<lower=0> N; // total number of observations
+  int<lower=0> J; // number of groups
+  vector[N] y;    // observations
+  int g[N];    // group indicator
+  int t[N];    // time indicator
+}
+parameters {
+    real alpha;
+    real gamma[J];
+    real mu;
+    real<lower=0> tau;
+    real<lower=0> sigma;
+}
+model {
+    alpha ~ normal(0, 2);
+    gamma[1:5] ~ normal(mu, tau);
+    mu ~ normal(0, 2);
+    tau ~ normal(0, 2);
+    sigma ~ normal(0, 2);
+    for (i in 1:N) {
+        if (t[i] == 1) {
+            continue;
+        }
+        y[i] ~ normal(alpha + y[i-1] * gamma[g[i]], sigma); 
+    }
+}
+generated quantities {
+    vector[N] y_rep;
+    for (i in 1:N) {
+        if (t[i] == 1) {
+            y_rep[i] = y[i];
+            continue;
+        }
+        y_rep[i] = normal_rng(alpha + y[i-1] * gamma[g[i]], sigma);
+    }
+}
+"}
+```
+
+```{r}
+ar1_hier_stanmod <- rstan::stan_model(model_code = ar1_hier_stancode())
+
+d <- list(
+    N = nrow(dat),
+    J = length(levels(dat$g)),
+    y = dat$y,
+    g = as.integer(dat$g),
+    t = as.integer(dat$t)
+)
+ar1h_fit <- sampling(ar1_stanmod, data = d,
+                     chains = 4, iter = 2000, warmup = 1000, thin = 1,
+                     seed = 123)
+
+print(ar1h_fit, pars = c("alpha", "gamma", "sigma"))
+```
+
+```{r}
+rstan::traceplot(ar1h_fit, pars = c("alpha", "gamma", "sigma"))
+```
+
+```{r}
+ar1h_rep <- rstan::extract(ar1h_fit, permuted = TRUE, pars = "y_rep")[["y_rep"]]
+
+summ <- t(apply(ar1h_rep, 2, quantile, c(0.025, 0.5, 0.975)))
+colnames(summ) <- c("lo", "med", "hi")
+summ <- as.data.frame(cbind(summ, t = dat$t, g = dat$g))
+summ$g <- as.factor(summ$g)
+ggplot(summ, aes(x = t, y = med, color = g, fill = g, group = g)) +
+    geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.25, color = NA) +
+    geom_line() +
+    geom_point(data = data.frame(y = d$y, t = d$t, g = as.factor(d$g)),
+               aes(x = t, y = y, color = g), size = 1, shape = 1) +
+    facet_wrap(~ g, scales = "free_y")
+
+```
+
+
+https://www.maths.usyd.edu.au/u/jormerod/Workshop/Example1/Example1.html
+

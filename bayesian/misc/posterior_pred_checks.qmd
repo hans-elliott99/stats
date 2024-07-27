@@ -15,11 +15,11 @@ There is no doubt that there is uncertainty in $y$ since it is a random variable
 
 In the Bayesian setup, we model uncertainty over $\theta$ by assuming it comes from its own distribution, with prior $p(\theta)$. So our full data model is:  
 $$
-y \sim p(y | \theta) \\
+y \sim p(y | \theta); \\
 \theta \sim p(\theta)
 $$
 
-Next we fit our model (using some method or another) to data using Bayes' theorem to get the posterior distribution of $\theta$ given the data, $p(\theta | y) \propto p(y | \theta) p(\theta)$ - i.e., the posterior distribution is proportional to the likelihood times the prior.
+Next we fit our model (using some method or another) to data using Bayes' theorem to get the posterior distribution of $\theta$ given the data, $p(\theta | y) \propto p(y | \theta) p(\theta)$ - i.e., the posterior distribution is proportional to the likelihood times the prior (up to the normalizing denominator, $p(y)$).
 
 This gives us an updated probability distribution over possible values for $\theta$.  
 
@@ -33,6 +33,8 @@ This process incorporates the uncertainty from 2 different sources:
 So, while it may be tempting to plug in a single value of $\theta$, say a $\hat{\theta}$, into the sampling distribution to generate new values of $y$, this would ignore the uncertainty in $\theta$ and cause the predictive distribution to be too narrow.
 
 These 2 sources of uncertainty are sometimes referred to as **epistemic** and **aleatoric** uncertainty, where epistemic uncertainty arises from $\theta$ being unkown and estimated based on a finite sample of data, and aleatoric uncertainty arising because even if we knew $\theta$ exactly, there is still uncertainty in the values of $y$ (by definition, since $y$ is a random variable, and so there is some missing information about its generation).
+>  Aleatoric uncertainty is sometimes called stochastic uncertainty, and its name is derived from Latin words referencing gambling. Aleatoric uncertainty represents the unkowns that differ each time we run an experiment, because we do not have sufficient knowledge about all the factors influencing the data - sometimes referred to as intrinsic randomness.  
+Epistemology is the study of knowledge, and epistemic uncertainty - or systematic uncertainty - indicates uncertainty due to a lack of knowledge about something that we could in principle know, perhaps due to lack of data or measurement error.  
 
 
 
@@ -40,7 +42,7 @@ An obvious reason to do posterior predictive sampling is if we are interested in
 
 But even if we are primarily interested in $\theta$, it is still important to analyze the posterior predictive distribution because it indicates the fit of the model - if we can't use our model to generate a simulated distribution of $y$ that looks and behaves something like the actual distribution of $y$ (in our observed data), then our model is not doing well.  
 
-In practice, this distribution is going to be difficult to calculate analytically, but we can estimate it using sampling.  
+In practice, this distribution is going to be difficult or impossible to calculate analytically, but we can estimate it using sampling.  
 
 This is essentially a 2 step process, repeated many times:  
 
@@ -265,37 +267,42 @@ For example, pretend we have the below data:
 
 ```{r}
 #| code-fold: true
+sim <- within(list(), {
+    n <- 50
+    x <- seq(-3, 3, length.out = n)
+    alpha <- -1
+    beta <- 3
+    sigma <- 2
+    y <- rnorm(n, mean = alpha + beta * x, sd = sigma)
+})
 
-.n <- 50
-x <- seq(-3, 3, length.out = .n)
-y <- rnorm(.n, mean = -1 + 3 * x, sd = 2)
 
-plot(x, y)
+plot(sim$x, sim$y)
 ```
 
-And suppose we've already produced posterior distributions for $\alpha$, $\beta$, and $\sigma_{\epsilon}$, so we could generate $y^{rep}$ values for each of the 100 $x$ values and compare each replication with the actual distribution of $y$:  
+And suppose we've already produced posterior distributions for $\alpha$, $\beta$, and $\sigma_{\epsilon}$, so we could generate $y^{rep}$ values for each of the $x$ values and compare each replication with the actual distribution of $y$:  
 
 ```{r}
 #| code-fold: true
 #| fig.width: 8
 #| fig.height: 8
 
-y_rep <- matrix(nrow = length(x),
+y_rep <- matrix(nrow = length(sim$x),
                 ncol = 100) ## number of replications
 
 for (i in seq(1, ncol(y_rep))) {
   alpha_rep <- rnorm(1, mean = -0.95, sd = 0.5)
   beta_rep <- rnorm(1, mean = 3.1, sd = 0.16)
   sig_rep <- abs(rnorm(1, mean = 2.1, sd = 0.36))
-  y_rep[, i] <- rnorm(length(x),
-                      mean = alpha_rep + beta_rep * x,
+  y_rep[, i] <- rnorm(length(sim$x),
+                      mean = alpha_rep + beta_rep * sim$x,
                       sd = sig_rep)
 }
 
 layout(matrix(c(0,1,1,0,0, 0,1,1,0,0, 2,3,4,5,6, 7,8,9,10,11),
               nrow = 4, byrow = TRUE))
 
-hist(y, main = "y", xlab = "")
+hist(sim$y, main = "y (observed)", xlab = "")
 for (i in seq(1, 10)) {
   hist(y_rep[, i], main = paste("Replication", i), xlab = "", ylab = "")
 }
@@ -310,9 +317,9 @@ Or as a scatter plot:
 y_mean <- rowMeans(y_rep)
 y_hdi <- t(apply(y_rep, 1, quantile, probs = c(0.025, 0.975)))
 
-plot(x, y, col = "blue", pch = 16)
-points(x, y_mean, col = "red", pch = 1)
-segments(x, y_hdi[, 1], x, y_hdi[, 2], col = "red", lty = 2)
+plot(sim$x, sim$y, col = "blue", pch = 16)
+points(sim$x, y_mean, col = "red", pch = 1)
+segments(sim$x, y_hdi[, 1], sim$x, y_hdi[, 2], col = "red", lty = 2)
 legend("topleft",
        legend = c("Observed", "Predicted Mean", "95% HDI"),
        col = c("blue", "red", "red"),
@@ -336,7 +343,150 @@ generated quantities {
 }
 ```
 
-During each iteration of MCMC, after Stan has sampled a draw of each parameter $\alpha$, $\beta$, and $\sigma$, it runs the generated quantities block using the sampled values to generate a $y^{rep}$ value for each $x$ value ($x$ would be defined in the `data` block and the parameters defined in the `parameter` block.
+During each iteration of MCMC, after Stan has sampled a draw for each parameter $\alpha$, $\beta$, and $\sigma$, it runs the generated quantities block using the sampled values to generate a $y^{rep}$ value for each $x$ value ($x$ would be defined in the `data` block and the parameters defined in the `parameter` block).
+
+
+## Prior predictive checks
+
+We simulate from the posterior predictive distribution of our model when we want to generate probabilistic predictions of the data, and also to check the fit of the model.  
+
+Likewise, we can simulate the model's predictions of the data *before it sees the data*, and this is a **prior predictive check**.  
+
+The objective here is to assess whether our priors are appropriate. If we have a single parameter and thus one prior, this might not seem too important, but often we have many parameters or even hierarchical parameters, so *it is important to see what the priors you set on the parameters imply about the prior distribution of the data*.  
+
+In practice, this goes exactly the same as a posterior predictive check, except with no data. We simulate parameter values from each parameter's prior distribution and feed those into the data's sampling distribution to generate prior predictions of the data. Then we can plot simulations of the data or compute test statistics using this distribution.
+
+Formally we write:  
+
+$$
+y^{sim} \sim p(y)
+$$
+
+where $p(y)$ is the prior sampling distribution of the data.  
+
+We can simulate from the prior predictive distribution by generating parameter values from their prior distributions and using them to generate y values from the sampling distribution.  
+
+
+$$
+\theta^{sim} \sim p(\theta)
+$$
+$$
+y^{sim} \sim p(y | \theta^{sim})
+$$
+
+This procedure really produces draws from the joint distribution $p(y, \theta)$ (probability of $y$ and $\theta$ values occurring together), but we obtain the marginal distribution $p(y^{sim})$ by ignoring $\theta^{sim}$, so that $y^{sim} \sim p(y)$.  
+
+
+For the linear regression example, we can simulate the prior predictive distribution in R. We define some priors for parameters $\alpha$, $\beta$, and $\sigma_{\epsilon}$, and then simulate from them.  
+
+
+```{r}
+# just for illustration, define functions that encode priors
+alpha_prior <- function() rnorm(1, mean = 0, sd = 5)
+beta_prior <- function() rnorm(1, mean = 0, sd = 5)
+sig_prior <- function() abs(rnorm(1, mean = 3, sd = 2))
+```
+
+```{r}
+#| code-fold: true
+
+# simulate from priors to observe distributions
+prior_params <- function() {
+    par(mfrow = c(2, 2))
+    # alpha
+    as <- replicate(1000, alpha_prior())
+    hist(as, main = expression(alpha), xlab = "")
+    points(x = sim$alpha, y = 0, pch = 13, col = "blue")
+    # beta
+    bs <- replicate(1000, beta_prior())
+    hist(bs, main = expression(beta), xlab = "")
+    points(x = sim$beta, y = 0, pch = 13, col = "blue")
+    # sigma
+    ss <- replicate(1000, sig_prior())
+    hist(ss, main = expression(sigma[epsilon]), xlab = "")
+    points(x = sim$sigma, y = 0, pch = 13, col = "blue")
+    #
+    plot(1, type="n", xaxt = "n", yaxt = "n",
+         xlab="", ylab="", xlim=c(0, 10), ylim=c(0, 10))
+    legend("center", legend = "True parameter (unkown)",
+           col = "blue", pch = 13)
+}
+
+prior_params()
+```
+
+We can then simulate the data from the prior predictive distribution using the priors we defined. Here I've plotted the prior predictive distribution for several of the $x$ values. Comparing them with the actual $y$ values (in red) from our data, we can see that our priors are quite diffuse and very uncertain about the location of the data (due to large SDs).  
+
+
+```{r}
+#| code-fold: true
+
+prior_check_dists <- function() {
+    ys <- matrix(nrow = length(sim$x), ncol = 1000)
+    for (i in seq(1, ncol(ys))) {
+      alpha_sim <- alpha_prior()
+      beta_sim <- beta_prior()
+      sig_sim <- sig_prior()
+      ys[, i] <- rnorm(length(sim$x),
+                       mean = alpha_sim + beta_sim * sim$x,
+                       sd = sig_sim)
+    }
+    
+    par(mfrow = c(3, 3), xpd = TRUE)
+    plot.new()
+    legend("topright",
+           legend = c("Data", "Sim"), col = c("red", "grey30"), pch = c("|", "|"))
+    for (i in seq(1, 8)) {
+        hist(ys[i, ], main = paste("y[", i, "]"), xlab = "")
+        points(x = sim$y[i], y = 0, pch = "|", col = "red", cex = 2)
+    }
+    par(mfrow = c(1, 1))
+}
+
+prior_check_dists()
+
+```
+
+We could also examine the distribution of possible regression lines generated from our priors (this of course ignores the variation from $\sigma_\epsilon$).  
+
+```{r}
+#| code-fold: true
+
+# simulate and plot lines from the prior distributions, compare with data
+prior_check_lines <- function() {
+    plot(NULL, xlim = range(sim$x) * 1.3, ylim = range(sim$y) * 1.3,
+         xlab = "x", ylab = "y")
+    for (i in seq(1, 1000)) {
+      alpha_sim <- alpha_prior()
+      beta_sim <- beta_prior()
+      abline(a = alpha_sim, b = beta_sim,
+             col = rgb("red", r = 0.5, b = 0, g = 0, alpha = 0.15))
+    }
+    points(sim$x, sim$y, col = "blue", pch = 16)
+    legend("topleft",
+           legend = c("Observed", "Prior Lines"),
+           col = c("blue", "red"),
+           lty = c(NA, 1),
+           pch = c(16, NA))
+}
+prior_check_lines()
+
+```
+
+Here are the same plots, using more "informative" priors.
+
+```{r}
+alpha_prior <- function() rnorm(1, mean = 0, sd = 1)
+beta_prior <- function() rnorm(1, mean = 3.5, sd = 1)
+sig_prior <- function() abs(rnorm(1, mean = 0, sd = 0.5))
+
+
+prior_params()
+prior_check_dists()
+prior_check_lines()
+
+```
+
 
 
 #### Helpful resources:  
@@ -347,3 +497,4 @@ During each iteration of MCMC, after Stan has sampled a draw of each parameter $
 
 <https://mc-stan.org/docs/cmdstan-guide/generate_quantities_config.html>
 
+<http://bebi103.caltech.edu.s3-website-us-east-1.amazonaws.com/2020b/content/lecture_notes/lecture_01/probability_distributions.html#id1>  

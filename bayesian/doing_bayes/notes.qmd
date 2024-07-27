@@ -1,0 +1,474 @@
+---
+title: "Random notes from 'Doing Bayesian Data Analysis'"
+author: "Hans Elliott"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+
+*Doing Bayesian Data Analysis*, Kruschke 2015  
+
+
+
+# Basic probability and Bayes rule
+
+The two-way distributions table:
+
+Eye x Hair color | Black | Brunette | Red | Blond | Marginal (eye color)
+--- | --- | --- | --- | --- | ---
+Brown | $p(Brown, Black)$ | $p(Brown, Brunette)$ | $p(Brown, Red)$ | $p(Brown, Blond)$ | $p(Brown)$
+Blue | $p(Blue, Black)$ | $p(Blue, Brunette)$ | $p(Blue, Red)$ | $p(Blue, Blond)$ | $p(Blue)$
+Green | $p(Green, Black)$ | $p(Green, Brunette)$ | $p(Green, Red)$ | $p(Green, Blond)$ | $p(Green)$
+Marginal (hair color) | $p(Black)$ | $p(Brunette)$ | $p(Red)$ | $p(Blond)$ | $1$
+
+
+
+**Conditional probability example:**    
+
+Eye x Hair color| Black | Brunette | Red | Blond | Marginal (eye color)
+--- | --- | --- | --- | --- | ---
+Brown | $\frac{p(Brown, Black)}{p(Brown)}$ | $\frac{p(Brown, Brunette)}{p(Brown)}$ | $\frac{p(Brown, Red)}{p(Brown)}$ | $\frac{p(Brown, Blond)}{p(Brown)}$ | $\frac{p(Brown)}{p(Brown)} = 1$
+
+
+Note:  
+
+- Each of the inner cells is a joint probability, or the probability of both events happening together - e.g., hair is black and eyes are brown.  
+- Marginal probability is the probability of one of the variables while ignoring the other. Thus, it is recorded in the margin of the table, and is the sum across the rows or columns. E.g., $p(Brown) = p(Brown, Black) + p(Brown, Brunette) + p(Brown, Red) + p(Brown, Blond)$.  
+- Conditional probability is the probability of one of the variables given the other variable's value is already set. So naturally, we look at the joint probability of the events happening together - e.g., hair is black and eyes are brown - and normalize by the base (marginal) probability of the event we are conditioning on - e.g., eyes are brown. So conditioning amounts to refocusing from the whole table to a specific row or column.    
+
+- $p(a,b) = p(a | b) p(b) = p(b | a) p(a)$  
+  - E.g., $p(\theta, Data) = p(\theta | Data)p(Data) = p(Data | \theta)p(\theta)$  
+  $\Rightarrow p(\theta | Data) = \frac{p(\theta, Data)}{p(Data)} = \frac{p(Data | \theta) p(\theta)}{p(Data)}$. So this is how we get Bayes rule, or that "the conditional probability of the parameter given the data is equal to the conditional probability of the data given the parameter (likelihood) times the marginal probability of the parameter (prior) divided by the marginal probability of the data (evidence/normalizing constant).
+  
+- If $a$ and $b$ are independent events, then $p(a | b) = p(a)$ and $p(b | a) = p(b)$, and $p(a, b) = p(a)p(b)$.  
+
+
+We can use the two-way table to think about Bayes' rule.  
+Let the value of the paramater $\theta$ vary across the rows and the value of the $Data$ vary across the columns (imagine $\theta$ and $Data$ are discrete, for simplicity):  
+
+$\theta$ x $Data$ | $Data_1$ | $\dots$ | Marginal ($\theta$)
+--- | --- | --- | ---
+$\theta_1$ |  $p(Data_1, \theta_1) = p(\theta_1 | Data_1)p(Data_1)$ | $\dots$ | $p(\theta_1)$
+$\theta_2$ |  $p(Data_1, \theta_2) = p(\theta_2 | Data_1)p(Data_1)$ | $\dots$ | $p(\theta_2)$
+$\dots$ | $\dots$ | $\dots$ | $\dots$
+**Marginal ($Data$)** | $p(Data_1)$ | $\dots$ | $1$
+
+In each cell we have the joint probability of a parameter value and data value occurring together. We know that Bayes' rule is $p(\theta | Data) = \frac{p(Data, \theta)}{p(Data)}$, so the numerator comes from these joint probabilities. We then normalize by the marginal probability of the data, which comes from the margin of the column of interest.  
+Thus, when the parameter of interest is assigned to the rows of the table, Bayes' rule is the act of reassigning credibility from the row margins to a specific column.  
+Without any $Data$, the best guess for $\theta$ comes from its marginal distribution, $p(\theta)$. But when we get some observation $Data_1$, we can redistribute credibility by focusing on the $Data_1$ column, where the joint probability for any $\theta_i$ is $p(Data_1, \theta_i) = p(\theta_i | Data_1) p(Data_1)$. By then dividing by $p(Data_1)$, we get an updated probability for $\theta_i$ conditional on the data we've received - $p(\theta_i | Data)$.  
+
+To use the eye-color X hair-color example: without any knowledge of a person's hair color, our best guess for their eye color is the marginal distribution of eye color. But if we know their hair is black, then this changes the probabilities assigned to each eye color. We want to incorporate this new information by conditioning on it, and we compute $p(\text{Eye color} | \text{Black hair})$ using Bayes' rule.
+
+
+
+
+# MCMC Intuition
+
+In Bayesian analysis we use Bayes' rule to compute the posterior probability over the parameter space $\theta$ given the data. We are primarily interested in obtaining an estimate for $\theta$, but we rely on Bayes' rule because it allows us to produce a $p(\theta | Data)$ from a $p(Data | \theta)$, or likelihood, and $p(\theta)$, or prior, and the likelihood and prior are both objects that we can define and calculate at the start of a problem.  
+To be a valid probability distribution, the posterior must integrate to 1, so the denominator in Bayes' rule is needed to normalize the numerator. From Bayes' rule we know the denominator is $p(Data)$, which is the marginal distribution of the data, and thus can be rewritten as the marginalizing out of $\theta$ from the joint distribution, or the numerator: $\int_{\theta \in \Theta} p(Data | \theta) p(\theta) d\theta$. So after we've defined the likelihood and prior, we really need to calculate this integral as a final step.  
+
+We use MCMC because it is often very difficult or impossible to analytically evaluate this integral. So even though we can compute the numerator, if we can't normalize it, we don't have a valid probability distribution.     
+
+MCMC methods work around this by working directly with the unnormalized posterior, $p(Data | \theta) p(\theta)$, as the *target distribution*, and finding clever ways to sample from it - i.e., generate random values of $\theta$ - that represent the actual posterior distribution.  
+
+
+## Metropolis Algorithm
+
+We have some target distribution $P(\theta)$ over a multi-dimensional continuous parameter space. We must be able to compute the value of $P(\theta)$ for any candidate value of $\theta$. But, $P(\theta)$ does not have to be normalized, merely nonnegative.  
+
+Sample values from $P(\theta)$ are generated by taking a random walk through the parameter space.  
+The walk begins at some arbitrary, specified point, where $P(\theta)$ is nonzero.  
+
+At each time step, a proposal is made for a move to a new position in parameter space. The proposal comes from a *proposal distribution*, which can take many different forms and can be tuned for efficiency.  
+The proposal value for $\theta$ is either accepted or rejected. If rejected, the current value of $\theta$ is retained. The proposal is accepted with probability $p_{move} = \frac{P(\theta_{proposed})}{P(\theta_{current})}$ (if $p_{move} > 1$, the move is always accepted else it is accepted probabilistically by simulating a random uniform deviate for comparison).  
+
+This works out because the relative transition probabilities between positions exactly match the relative values of the target distribution, such that each position in parameter space will be visited proportionally to its target value.  
+
+The sequence of samples is a Markov chain because at each step, the distribution over the next sample depends only on the value of the current sample, and not on any previous samples.
+
+Wikipedia has a nice intuitive explanation: [Metropolis-Hastings algorithm](https://en.wikipedia.org/wiki/Metropolis%E2%80%93Hastings_algorithm)
+
+
+### Example - Metropolis algorithm for Binomial likelihood with Beta prior
+
+Binomial PMF:  
+$f(\theta) = {N \choose z} \theta^z (1 - \theta)^{N - z}$, where $\theta \in \{0, 1\}$  
+
+(Note we can drop the binomial coefficient since it does not depend on $\theta$).  
+
+Beta PDF, as a prior:  
+$f(\theta) = \frac{\theta^{\alpha - 1}(1-\theta)^{\beta - 1}}{B(\alpha, \beta)}$, where $x \in [0, 1]$, $\alpha, \beta > 0$, and $B$ is the Beta function.  
+
+
+
+```{r}
+#| fig.width: 6
+#| fig.height: 6
+alphas <- c(1, 2, 3)
+betas <- c(1, 2, 3)
+thetas <- seq(0, 1, 0.01)
+
+par(mfrow = c(length(alphas), length(betas)))
+
+for (i in 1:length(alphas)) {
+  for (j in 1:length(betas)) {
+    plot(thetas, dbeta(thetas, alphas[i], betas[j]),
+         type = "l",
+         main = paste("Beta(", alphas[i], ",", betas[j], ")"),
+         xlab = "Theta", ylab = "Density")
+  }
+}
+```
+
+
+Note that the Beta distribution is conjugate to the Binomial, so we can easily compute the posterior distribution analytically. The posterior will also be a Beta distribution:
+
+$p(\theta | D) = Beta(\alpha + z, \beta + N - z)$
+
+
+
+To calculate the acceptance probability:  
+
+$$
+p_{move} = \frac{P(\theta_{pro})}{P(\theta_{cur})} = \frac{p(D|\theta_{pro})p(\theta_{pro})}{p(D|\theta_{cur})p(\theta_{cur})} = \frac{Binomial(D|\theta_{pro})Beta(\theta_{pro}|\alpha, \beta)}{Binomial(D|\theta_{cur})Beta(\theta_{cur}|\alpha, \beta)}
+$$
+
+
+
+
+
+```{r}
+# Example of Metropolis algorithm for a Binomial likelihood with Beta prior
+run_metropolis_mcmc <- function(data,
+                                target_fn,
+                                proposal_fn,
+                                theta_init,
+                                niter = 1000,
+                                warmup = floor(niter / 2)) {
+
+  message("* Running MCMC - Metropolis algorithm")
+  # Initialize
+  t0 <- Sys.time()
+  chain <- numeric(niter)
+  theta_cur <- theta_init
+  # Sample
+  n_acc <- 0 # track number of accepted proposals
+  for (iter in seq(1, warmup + length(chain))) {
+    # 1. Generate proposal value
+    theta_pro <- theta_cur + proposal_fn()
+    # 2. Calculate acceptance probability
+    p_move <- target_fn(theta_pro, data) / target_fn(theta_cur, data)
+    # 3. Accept or reject
+    if (p_move > 1 || runif(1) < p_move) {
+      theta_cur <- theta_pro
+      if (iter > warmup) n_acc <- n_acc + 1
+    }
+    # 4. Store sample
+    if (iter > warmup) {
+      chain[iter - warmup] <- theta_cur
+    }
+    # Repeat ...
+  }
+  message("** Finished in ",
+          round(difftime(Sys.time(), t0, units = "secs"), 1), "s")
+  message("** Acceptance rate: ", n_acc / length(chain))
+  return(chain)
+}
+
+
+# Binomial likelihood
+# N flips, z heads, governed by prob. of head theta
+.bin_lik <- function(theta, N, z) {
+  return( theta^z * (1 - theta)^(N - z) )
+}
+# Beta prior
+# theta in (0, 1), alpha, beta > 0
+.beta_prior <- function(theta, alpha, beta) {
+  return( dbeta(theta, alpha, beta) )
+}
+
+# Specifies the unnormalized posterior distribution
+target_relative <- function(theta, D) {
+  return(.bin_lik(theta, D$N, D$z) * .beta_prior(theta, D$alpha, D$beta))
+}
+
+# Specifies the proposal distribution - SD can be tuned
+proposal_jump <- function() {
+  return(rnorm(1, mean = 0, sd = 0.5))
+}
+
+
+# Simulate some data
+## We observe the number of heads, z, out of N coin flips,
+## and we control the underlying probability of heads (theta).
+## Also specify values for prior dist. parameters, alpha and beta.
+##
+## Fun to mess with the number of flips ("amount of data") and the priors.
+## A very flat prior with not many flips may lead to a posterior that seems
+## quite different from the underlying simulation, since z/N may be far from p.
+set.seed(1614)
+D <- within(list(), {
+  # data gen process
+  N <- 10
+  p <- 0.66
+  z <- rbinom(1, size = N, prob = p)
+  # prior dist params
+  alpha <- 2
+  beta <- 2
+})
+
+
+
+chain <- run_metropolis_mcmc(D, target_relative, proposal_jump,
+                             theta_init = 0.5,
+                             niter = 10000)
+
+```
+
+
+```{r}
+# for visualizations, take advantage of simple nature of this problem to derive
+# posterior dist. and mean analytically
+true_posterior <- function(theta, D) {
+  return(dbeta(theta, D$alpha + D$z, D$beta + D$N - D$z))
+}
+true_posterior_mean <- function(D) {
+  a <- D$alpha + D$z
+  b <- D$beta + D$N - D$z
+  return(a / (a + b))
+}
+
+
+#
+# trace plot
+#
+plot(seq_along(chain), chain, type = "l",
+     main = "Traceplot", xlab = "Iteration", ylab = "Theta")
+abline(h = D$p, col = "blue")
+abline(h = true_posterior_mean(D), col = "red")
+legend("topright",
+       legend = c("True value", "True Post. mean"),
+       lty = 1,
+       col = c("blue", "red"))
+
+
+#
+# histogram
+#
+hist(chain, breaks = 20, main = "Posterior", xlab = "Theta")
+abline(v = D$p, col = "blue")
+abline(v = mean(chain), col = "black")
+abline(v = true_posterior_mean(D), col = "red", lty = 2)
+legend("topright", legend = c("True value", "Posterior mean", "True Post. mean"),
+       col = c("blue", "black", "red"), lty = c(1, 1, 2))
+
+
+#
+# density
+#
+thetas <- seq(0, 1, 0.01)
+plot(thetas, true_posterior(thetas, D), type = "l", col = "red",
+     main = "True posterior", xlab = "Theta", ylab = "Density")
+lines(density(chain), col = "black", lty = 2)
+legend("topleft", legend = c("True posterior", "Estimated posterior"),
+       col = c("red", "black"), lty = 1)
+
+
+
+```
+
+
+One problem with the Metropolis algorithm is that the proposal distribution must be properly tuned to the posterior for the algorithm to work well. If too narrow or too wide, a large proportion of proposals will be rejected and the algorithm will get stuck sampling in a small region of the parameter space.  
+
+
+## Other MCMC Methods
+
+### Gibbs Sampling
+
+Gibbs sampling is also a type of random walk through parameter space,
+like the Metropolis algorithm. The walk starts at some arbitrary point, and at each point
+in the walk, the next step depends only on the current position, and on no previous
+positions. The key difference is in how the next position is chosen.  
+
+Gibbs sampling is especially useful with multiple parameters. At each point in the walk, one of the component parameters from $\theta = (\theta_1, \theta_2, \ldots, \theta_k)$ is selected, say $\theta_i$. Gibbs sampling generates a new value for $\theta_i$ by sampling from the conditional distribution of $\theta_i$ given all the other parameters and the data: $p(\theta_i | \theta_{j \ne i}, D)$. This is done for each parameter in turn, cycling through the parameters until all have been updated.
+
+This can be thought of as a special case of the Metropolis algorithm where the proposal distribution depends on the location in the parameter space and the component paramater selected - the proposal distribution is the conditional posterior probability of that parameter.  
+Because the proposal distribution exactly mirrors the posterior probability for that parameter, the proposed move is always accepted.
+
+To accomplish Gibbs sampling, we must determine the conditional posterior distribution for each parameter.  
+
+
+# MCMC Representativeness and Accuracy
+
+Goals of generating MCMC samples:  
+
+1. Values of the chain must be representative of the posterior distribution.  
+  - Not influenced by the arbitrary initial value of the chain
+  - Should fully explore the range of the posterior distribution without getting stuck  
+
+2. The chain should be large enough that estimates are accurate and stable.  
+
+3. The chain should be generated efficiently, with as few steps as possible.  
+
+
+## Checks for unrepresentativeness
+
+Via visual examination and numerical descriptions of convergence.  
+
+
+```{r}
+# example chain from above
+chains <- lapply(
+  1:4,
+  function(x) run_metropolis_mcmc(D, target_relative, proposal_jump,
+                                 theta_init = 0.5,
+                                 niter = 10000)
+)
+```
+
+### Trace plot: visual examination of chain's trajectory
+
+Especially useful when you have multiple chains. If all the chains are representative, they should overlap.
+
+Note, the preliminary steps, during which the chain moves from its unrepresentative initial value to the modal region of the posterior, is called the burn-in or warmup period, which is typically discarded.
+
+```{r}
+plot(seq_along(chains[[1]]), chains[[1]], type = "l", lty = 2, col = 1,
+     main = "Traceplot", xlab = "Iteration", ylab = "Theta")
+for (i in 2:4) {
+  lines(seq_along(chains[[i]]), chains[[i]], col = i, lty = 2)
+}
+legend("topright", title = "Chain", legend = 1:4, col = 1:4, lty = 2)
+```
+
+### Density overlay: visual examination of chain's distribution
+
+Again, looking for overlapping/similar shaped chains with stability in central and tail estimates.
+
+```{r}
+densities <- lapply(chains, density)
+plot(densities[[1]], type = "l", col = 1, lty = 2,
+     main = "Density overlay", sub = "With median & 95% HDI",
+     xlab = "Theta", ylab = "Density")
+for (i in 2:4) {
+  lines(densities[[i]], col = i, lty = 2)
+}
+for (i in 1:4) {
+  points(x = quantile(chains[[i]], c(0.025, 0.5, 0.975)), y = c(0,0,0),
+         col = i, pch = "|", lheight = 0.25)
+}
+```
+
+### Gelman-Rubin statistic/shrink-factor
+
+Numerical measure of convergence. Compares the variance of the samples within each chain to the variance of the samples between chains.
+Its value is 1.0 if the chains are fully converged, but its value is larger
+than 1.0 if there are orphaned or stuck chains. As a heuristic, if the Gelman-Rubin
+statistic is greater than 1.1 or so, you should worry that perhaps the chains have not
+converged adequately.  
+
+```{r}
+# https://en.wikipedia.org/wiki/Gelman-Rubin_statistic
+gelman_rubin <- function(chains) {
+  J <- length(chains)
+  L <- length(chains[[1]])
+  # between chain variance
+  chain_mean <- vapply(chains, mean, numeric(1)) 
+  B <- (L / (J - 1)) * sum((chain_mean - mean(chain_mean))^2)
+  # within chain variance
+  W <- (1 / J) * sum(vapply(chains, function(x) {
+    sum((x - mean(x))^2)
+  }, numeric(1)))
+  # estimate
+  R <- ( ((L - 1) / L) * W + (B / L) ) / W
+  return(R)
+}
+
+gelman_rubin(chains)
+```
+
+## MCMC Accuracy
+
+Successive steps in a clumpy chain do not provide independent information about the parameter distribution, so we need measures of autocorrelation - the correlation of the chain values with itself ar $k$ steps ahead.  
+
+### Autocorrelation function plots
+
+We want to see the autocorrelation drop off very quickly to zero as $k$ (lag) increases, else the parameter values at successive steps in the chain are not providing independent information about the posterior, since each successive step is partially redundant with the previous step.  
+
+```{r}
+par(mfrow = c(2, 2))
+acf(chains[[1]], lag.max = 100, main = "Chain 1")
+acf(chains[[2]], lag.max = 100, main = "Chain 2")
+acf(chains[[3]], lag.max = 100, main = "Chain 3")
+acf(chains[[4]], lag.max = 100, main = "Chain 4")
+
+```
+
+### Effective sample size
+
+The notion that not every sample may be contributing independent information to the posterior distribution tells us that we want some way to quantify how much independent information *is* being provided by a chain.  
+This is the motivation for the effective sample size (ESS), which divides the actual sample size by the amount of autocorrelation:  
+
+$$
+ESS = \frac{N}{1 + 2 \sum_{k=1}^{\infty} ACF(k)}
+$$
+Where $ACF(K)$ is the autocorrelation of the chain at lag $k$. For practical computation, the sum is stopped at the $k$ where $ACF(k) \le 0.05$, for example. 
+
+```{r}
+ess <- function(chain, max_try = 3) {
+  N <- length(chain)
+  acf_vals <- acf(chain, plot = FALSE, lag.max = 100)$acf
+  # if 100 isn't enough lags, try more
+  ntry <- 0
+  while (acf_vals[length(acf_vals)] > 0.05 && ntry < max_try) {
+    ntry <- ntry + 1
+    acf_vals <- acf(chain, plot = FALSE, lag.max = 100 + ntry * 50)$acf
+  }
+  ESS <- N / (1 + 2 * sum(acf_vals))
+  return(ESS)
+}
+
+# number of iterations
+cat(lengths(chains))
+# effective sample size
+cat(ess(chains[[1]]), ess(chains[[2]]), ess(chains[[3]]), ess(chains[[4]]))
+```
+More: <https://mc-stan.org/docs/2_18/reference-manual/effective-sample-size-section.html>  
+
+### MC Standard Error
+
+We can use ESS to compute a Monte Carlo standard error (MCSE) for the mean of the chain.  
+Recall the standard error of a statistic is the standard deviation of its sampling distribution, and the SE of the sample mean of $N$ i.i.d. observations is calculated as $SE = SD / \sqrt{N}$, where $SD$ is the standard deviation of the sample.  
+The MCSE is very similar: $MCSE = SD / \sqrt{ESS}$, where $SD$ is the standard deviation of the chain and $ESS$ is the effective sample size.  
+
+```{r}
+mcse <- function(chain) {
+  sd_chain <- sd(chain)
+  ESS <- ess(chain)
+  MCSE <- sd_chain / sqrt(ESS)
+  return(MCSE)
+}
+
+sapply(chains, mcse)
+```
+
+
+
+## MCMC Efficiency
+
+Run chains in parallel.  
+
+Adjust sampling method based on problem (in practice, software implements for you).  
+
+Re-parameterize the model if possible and helpful. (And at a minimum, mean-center predictors in regression.)  
+
+
+
+
+
+
+
+
+

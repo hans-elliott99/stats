@@ -1,0 +1,314 @@
+---
+title: "Bayesian Hierarchical Model Example - Therapeutic Touch"
+author: "Hans Elliott"
+format:
+  html:
+    embed-resources: true
+toc: true
+---
+
+Example from chapter 9 of Doing Bayesian Data Analysis by John Kruschke.
+
+
+```{r}
+#| warnings: false
+#| messages: false
+
+library(ggplot2)
+library(data.table)
+library(rstan)
+library(glue)
+```
+
+
+The data are the results from an experiment with 28 subjects (the `s` column in the data), each of whom was tested for the ability of "therapeutic touch". They were blindfolded and the experimenter randomly (via coin flip) chose which of the subject's hands to rest their hand over (without touching). If the subject correctly identified the hand, this was considered a "success" and a 1 is recorded in the below data in the `y` column.  
+
+Each subject was tested 10 times.
+
+```{r}
+dat <- fread(here::here("bayesian", "doing_bayes", "data",
+                        "TherapeuticTouchData.csv"))
+
+
+head(dat)
+glue("Dimensions: {dim(dat) |> paste(collapse = ' x ')}\n")
+
+ggplot(dat, aes(x = as.integer(gsub("S", "", s)), fill = factor(y))) +
+    geom_bar(position = "stack") +
+    scale_y_continuous(breaks = seq(0, 10, by = 2)) +
+    scale_x_continuous(breaks = seq(1, 28, by = 2)) +
+    scale_fill_viridis_d(option = "cividis") +
+    labs(title = "Therapeutic Touch Data",
+         x = "Subject",
+         y = "Count",
+         fill = "Success") +
+    theme_minimal() +
+    theme(
+        legend.position = "top"
+    )
+
+```
+
+Each trial is independent and we record either a success of failure, so we can model the result of each trial within each subject as a Bernoulli random variable:  
+$$Y_{i|s} \sim Bern(\theta_s)$$,  
+where $Y_{i|s}$ is the result of the $i$th trial for subject $s$ and $\theta_s$ is the probability of success for subject $s$.
+
+(Naturally, the full set of results for each subject can also be modeled by Binomial random variable $Y_s \sim Bin(n = 10, p = \theta_s)$.) 
+
+
+Scientifically, we are not just interested in the probability of success for a single subject but rather the general probability of success for the population the subjects come from - for this example, that is practitioners of "therapeutic touch". (And more specifically, for this experiment we are interested if this population can successfully detect the presence of a hand more often than random chance.)  
+
+
+This lends itself to the hierarchical model described below. 
+First, here is the full model written out. Below it is picked apart.
+
+$$
+\begin{aligned}
+y_{i|s} &\sim Bern(\theta_s) \\
+\theta_s &\sim Beta(\omega(\kappa - 2) + 1, (1 - \omega)(\kappa-2) + 1) \\
+\omega &\sim Beta(A_\omega, B_\omega) \\
+\kappa &\sim Gamma(A_\kappa, B_\kappa)
+\end{aligned}
+$$
+Explanation:
+
+$$y_{i|s} \sim Bern(\theta_s)$$  
+
+- *We let $y$ be a random variable representing the outcome of a trial.*
+- *This denotes that the outcome (i.e., success or failure, 1 or 0) of trial $i$ within subject $s$ is distributed according to a Bernoulli distribution with probability of success $\theta_s$.*
+
+$$\theta_s \sim Beta(\omega(\kappa - 2) + 1, (1 - \omega)(\kappa-2) + 1)$$
+
+
+- *The $\theta_s$'s are each subjects' probability of success. This statement models them as coming from a common distribution and even sharing parameters, which means we will be able to make inferences about the distribution over the $\theta_s$'s and about the common, "population-level" parameters $\omega$ and $\kappa$.*
+
+- *In a non-hierarchical model, we would simply put a prior on the $\theta_s$'s and be done with the model specification. For example, if we put non-hierarchical priors on the $\theta_s$'s, e.g. $\theta_s \sim Beta(2,2)$, then the posterior distributions of the $\theta_s$'s would be essentially unrelated to each other, because the data of each subject would only influences their own $\theta$, and not any other subject's $\theta$ (although if they all had the same prior distribution and the priors exert strong influence, the posteriors would still appear homogeneous). This would be the "no-pooling" model. At the opposite end of the spectrum is the "full-pooling" model, where you would fit a model of $y_i \sim Bern(\theta)$ and use all the data across subjects to estimate a single $\theta$ parameter (this would not be wise).*  
+
+- *So the key innovation here is that the distributions of subject-level parameters, the $\theta_s$'s, now depend on parameters $\omega$ and $\kappa$ that are shared across all subjects. So while subject 1's data does not directly influence $\theta_2$, it does directly influence $\omega$ and $\kappa$ which then influence $\theta_2$, and all the other $\theta_s$'s. In other words, this model specification provides a "back-door" for the data of one subject to influence the estimates of another subject's parameters. For this reason it is called a "partial-pooling model".*
+
+
+- *Note - the strange looking parameterization here is just a way to re-parameterize the Beta distribution in terms of its mode $\omega$ and concentration $\kappa$. Since we will be using the data to estimate these parameters, this gives them more directly intuitive interpretations compared to the typical Beta parameterization (and makes it easier to set priors since they have direct connections to the shape of the distribution).*  
+
+- *In this case, we could interpret $\omega$ as the modal ability of the population to detect the presence of a hand (and $\kappa$ as the concentration of the distribution around this mode). Thus by estimating $\omega$, we can infer some characteristics about the population while still modeling the experiment.*  
+
+- *Finally, note that we have chosen to model $\theta_s$ as a Beta random variable, which can only take values on the range $[0,1]$. This is a reasonable choice since $\theta_s$ must be between 0 and 1 to be a valid parameter for the Bernoulli distribution.*  
+
+
+$$\omega \sim Beta(A_\omega, B_\omega)$$
+
+- *This is the prior on the mode of the population-level distribution of $\theta_s$. We will have to choose $A_\omega$ and $B_\omega$ when we estimate the model.*  
+- *Again, we have used a Beta distribution so that $\omega$ is within $[0,1]$, which makes sense for our model since $\omega$ is the modal probability of success for the population, and probabilities must be between 0 and 1.*  
+
+
+
+$$\kappa \sim Gamma(S_\kappa, R_\kappa)$$
+
+- *This is the prior on the concentration of the population-level distribution of $\theta_s$. We will have to choose $S_\kappa$ and $R_\kappa$ when we estimate the model.*    
+- *We have used a Gamma distribution. This is partially because $\kappa$ must be positive in order for the parameters of the Beta distribution to remain grater than 0, which is required for them to be valid Beta distribution parameters. (Notice that $\kappa$ must actually be greater than or equal to 2 for us to be certain that the parameters won't be 0 or negative once evaluated. This is handled below.)*
+
+
+```{r}
+#| code-fold: true
+#| echo: false
+#| warnings: false
+#| messages: false
+
+bern_beta_nopool <- within(list(), { code <- "
+data {
+    int<lower=0> N;                   // number of observations
+    int<lower=0> Nsub;
+    int<lower=0, upper=1> y[N];       // number of successes
+    int<lower=1> s[N];                // subject index
+}
+parameters {
+    real<lower=0, upper=1> theta[Nsub]; // subject-specific probabilities of success
+}
+model {
+    // sampling distribution/likelihood
+    for (i in 1:N) {
+        y[i] ~ bernoulli(theta[s[i]]);
+    }
+    // prior
+    for (j in 1:Nsub) {
+        theta[j] ~ beta(2, 2);
+    }
+}"})
+bern_beta_nopool$mod <- stan_model(model_code = bern_beta_nopool$code)
+bern_beta_nopool$data <- list(
+    N = nrow(dat),
+    Nsub = length(unique(dat$s)),
+    y = dat$y,
+    s = as.integer(gsub("S", "", dat$s))
+)
+bern_beta_nopool$fit <- sampling(bern_beta_nopool$mod,
+                                 data = bern_beta_nopool$data,
+                                 chains = 4,
+                                 iter = 2000,
+                                 warmup = 1000)
+nopool_thetas <- rstan::extract(bern_beta_nopool$fit, pars = "theta")[[1]]
+nopool_thetas <- as.data.frame(
+    t(apply(nopool_thetas, 2, quantile, c(0.05, 0.5, 0.95)))
+)
+colnames(nopool_thetas) <- c("theta5", "theta50", "theta95")
+nopool_thetas$s <- 1:nrow(nopool_thetas)
+```
+
+
+
+```{r}
+#| echo: false
+#| warnings: false
+
+bern_beta_hier1 <- within(list(), { code <- "
+data {
+    int<lower=0> Ntot;                   // number of observations
+    int<lower=0> Nsub;                   // number of subjects
+    int<lower=0, upper=1> y[Ntot];       // number of successes for each subject
+    int<lower=1, upper=Nsub> s[Ntot];    // subject index
+    // allow specifcation of prior parameters
+    real<lower=0> Aomega;
+    real<lower=0> Bomega;
+    real<lower=0> Skappa;
+    real<lower=0> Rkappa;
+}
+parameters {
+    real<lower=0, upper=1> theta[Nsub]; // subject-specific probabilities of success
+    real<lower=0, upper=1> omega;       // population-level mode 
+    real<lower=0> kappaMinusTwo;        // concentration of population distribution
+}
+transformed parameters {
+    real<lower=0> kappa;
+    kappa = kappaMinusTwo + 2;
+}
+model {
+    // sampling distribution/likelihood
+    for (i in 1:Ntot) {
+        y[i] ~ bernoulli(theta[s[i]]);
+    }
+    // model for theta
+    for (subj in 1:Nsub) {
+        theta[subj] ~ beta(omega * (kappa - 2) + 1,
+                           (1 - omega) * (kappa - 2) + 1);
+    }
+    // priors
+    omega ~ beta(Aomega, Bomega); // prior on mode
+    kappaMinusTwo ~ gamma(Skappa, Rkappa); // prior on concentration
+}
+"})
+
+bern_beta_hier1$mod <- stan_model(model_code = bern_beta_hier1$code)
+
+bern_beta_hier1$data <- list(
+    Ntot = nrow(dat),
+    Nsub = length(unique(dat$s)),
+    y = dat$y,
+    s = as.integer(gsub("S", "", dat$s)),
+    Aomega = 1,
+    Bomega = 1,
+    Skappa = 1.105125,
+    Rkappa = 0.105125
+)
+# note: to increase pooling try kappa prior S 36 and R 0.12
+
+bern_beta_hier1$fit <- sampling(
+    bern_beta_hier1$mod,
+    data = bern_beta_hier1$data,
+    chains = 4,
+    warmup = 1000,
+    iter = 3000,
+    thin = 1,
+    cores = 4,
+    verbose = FALSE,
+    seed = 123
+)
+```
+
+```{r}
+rstan::check_hmc_diagnostics(bern_beta_hier1$fit)
+```
+
+
+```{r}
+#| message: false
+
+rstan::traceplot(bern_beta_hier1$fit, pars = c("omega", "kappa", "theta"))
+rstan::stan_hist(bern_beta_hier1$fit, pars = c("omega", "kappa"))
+rstan::stan_hist(bern_beta_hier1$fit,
+                 pars = c("theta[1]", "theta[14]", "theta[28]"))
+```
+
+```{r}
+print(bern_beta_hier1$fit,
+      pars = c("omega", "kappa"), probs = c(0.1, 0.5, 0.9))
+plot(bern_beta_hier1$fit, pars = c("omega", "theta"))
+```
+
+```{r}
+omega <- rstan::extract(bern_beta_hier1$fit, pars = c("omega"))[[1]]
+quantile(omega, c(0.05, 0.5, 0.95))
+```
+
+
+```{r}
+thetas <- rstan::extract(bern_beta_hier1$fit, pars = c("theta"))[[1]]
+thetas <- as.data.frame(
+    t(apply(thetas, 2, quantile, c(0.05, 0.5, 0.95)))
+)
+colnames(thetas) <- c("theta5", "theta50", "theta95")
+thetas$s <- 1:nrow(thetas)
+
+dat_bys <- by(dat, dat$s, function(x) {
+    data.frame(
+        s = x$s[1],
+        y = sum(x$y),
+        N = nrow(x),
+        prop = sum(x$y) / nrow(x)
+    )
+})
+dat_bys <- as.data.frame(do.call(rbind, dat_bys))
+dat_bys$s <- as.numeric(gsub("S", "", dat_bys$s))
+
+ggplot() +
+    geom_abline(aes(intercept = mean(dat_bys$prop),
+                    slope = 0,
+                    color = "Full Pooling"),
+                linetype = 2, alpha = 0.5) +
+    geom_abline(aes(intercept = mean(omega),
+                    slope = 0,
+                    color = "Omega"),
+                linetype = 2, alpha = 0.5) +
+    geom_bar(data = dat_bys,
+             aes(x = s, y = prop, color = "Observed"),
+             stat = "identity", fill = "grey", alpha = 0.5, linewidth = 0.1) +
+    geom_point(data = nopool_thetas,
+               aes(x = s, y = theta50, color = "No Pooling"),
+               alpha = 0.5) +
+    geom_errorbar(data = nopool_thetas,
+                  aes(x = s, ymin = theta5, ymax = theta95, color = "No Pooling"),
+                  alpha = 0.5) +
+    geom_point(data = thetas,
+               aes(x = s, y = theta50, color = "Partial Pooling"),
+               alpha = 0.7) +
+    geom_errorbar(data = thetas,
+                  aes(x = s, ymin = theta5, ymax = theta95),
+                  alpha = 0.7, width = 0.2) +
+    scale_color_manual(values = c("No Pooling" = "salmon",
+                                  "Full Pooling" = "blue",
+                                  "Partial Pooling" = "black",
+                                  "Observed" = "grey",
+                                  "Omega" = "orange")) +
+    labs(x = "Subject",
+         y = "Theta",
+         title = "Posterior estimates of theta",
+         color = "") +
+    theme_minimal()
+
+```
+
+
+
+
+
+
+
+
