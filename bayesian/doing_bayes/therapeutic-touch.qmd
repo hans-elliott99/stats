@@ -80,18 +80,20 @@ $$y_{i|s} \sim Bern(\theta_s)$$
 $$\theta_s \sim Beta(\omega(\kappa - 2) + 1, (1 - \omega)(\kappa-2) + 1)$$
 
 
-- *The $\theta_s$'s are each subjects' probability of success. This statement models them as coming from a common distribution and even sharing parameters, which means we will be able to make inferences about the distribution over the $\theta_s$'s and about the common, "population-level" parameters $\omega$ and $\kappa$.*
+- *The $\theta_s$'s are each subjects' probability of success. This statement specifies that there distributions depend on the parameters $\omega$ and $\kappa$. Since $\omega$ and $\kappa$ are shared across all subjects, they are sometimes called population-level parameters.* 
 
 - *In a non-hierarchical model, we would simply put a prior on the $\theta_s$'s and be done with the model specification. For example, if we put non-hierarchical priors on the $\theta_s$'s, e.g. $\theta_s \sim Beta(2,2)$, then the posterior distributions of the $\theta_s$'s would be essentially unrelated to each other, because the data of each subject would only influences their own $\theta$, and not any other subject's $\theta$ (although if they all had the same prior distribution and the priors exert strong influence, the posteriors would still appear homogeneous). This would be the "no-pooling" model. At the opposite end of the spectrum is the "full-pooling" model, where you would fit a model of $y_i \sim Bern(\theta)$ and use all the data across subjects to estimate a single $\theta$ parameter (this would not be wise).*  
 
 - *So the key innovation here is that the distributions of subject-level parameters, the $\theta_s$'s, now depend on parameters $\omega$ and $\kappa$ that are shared across all subjects. So while subject 1's data does not directly influence $\theta_2$, it does directly influence $\omega$ and $\kappa$ which then influence $\theta_2$, and all the other $\theta_s$'s. In other words, this model specification provides a "back-door" for the data of one subject to influence the estimates of another subject's parameters. For this reason it is called a "partial-pooling model".*
+    - *Note - even with the clarifications above, I find this distributional notation $\theta_s \sim Beta(\omega(\kappa - 2) + 1, (1 - \omega)(\kappa-2) + 1)$ used in the mathematical definition and stan code to be slightly confusing. For a given $\omega$ and $\kappa$, this seems to suggest that each $\theta_s$ has the same distribution, which doesn't make sense (why would we have a parameter for each subject if they are copies of each other?). It's important to remember that this is really the specification of a prior. Each $\theta_s$ has the same prior distribution, but these distributions will be updated into different posteriors because each subject has different data (more or less).*
+    - *Remember, we use Bayes' rule to obtain the joint posterior $p(\theta_1, \dots, \theta_s, \dots, \omega, \kappa | y) = \frac{p(y | \theta_1, \dots, \theta_s, \dots, \omega, \kappa) p(\theta_1, \dots, \theta_s, \dots, \omega, \kappa)}{p(y)} = \frac{p(y|\theta_1, \dots, \theta_s, \dots) p(\theta_1|\omega, \kappa) \cdots p(\theta_s | \omega, \kappa) \cdots p(\omega)p(\kappa)}{p(y)}$*
 
 
 - *Note - the strange looking parameterization here is just a way to re-parameterize the Beta distribution in terms of its mode $\omega$ and concentration $\kappa$. Since we will be using the data to estimate these parameters, this gives them more directly intuitive interpretations compared to the typical Beta parameterization (and makes it easier to set priors since they have direct connections to the shape of the distribution).*  
 
 - *In this case, we could interpret $\omega$ as the modal ability of the population to detect the presence of a hand (and $\kappa$ as the concentration of the distribution around this mode). Thus by estimating $\omega$, we can infer some characteristics about the population while still modeling the experiment.*  
 
-- *Finally, note that we have chosen to model $\theta_s$ as a Beta random variable, which can only take values on the range $[0,1]$. This is a reasonable choice since $\theta_s$ must be between 0 and 1 to be a valid parameter for the Bernoulli distribution.*  
+- *Finally, note that we have chosen to model $\theta_s$ as Beta random variables, which can only take values on the range $[0,1]$. This is a reasonable choice since the $\theta_s$ must be between 0 and 1 to be valid parameters for the Bernoulli distribution.*  
 
 
 $$\omega \sim Beta(A_\omega, B_\omega)$$
@@ -109,9 +111,10 @@ $$\kappa \sim Gamma(S_\kappa, R_\kappa)$$
 
 ```{r}
 #| code-fold: true
-#| echo: false
+#| results: false
 #| warnings: false
 #| messages: false
+#| error: false
 
 bern_beta_nopool <- within(list(), { code <- "
 data {
@@ -156,8 +159,8 @@ nopool_thetas$s <- 1:nrow(nopool_thetas)
 
 
 ```{r}
-#| echo: false
-#| warnings: false
+#| code-fold: false
+#| results: hide
 
 bern_beta_hier1 <- within(list(), { code <- "
 data {
@@ -307,7 +310,7 @@ ggplot() +
 
 
 
-
+Note that relative the "No Pooling" model in pink, the "Partial Pooling" estimates are pulled towards the "Full Pooling" estimate, or the Omega estimate which represents the population level mode. This is the essence of partial pooling. The estimates are shrunk towards the population level estimate, so that you achieve a balance between full and no pooling.
 
 
 

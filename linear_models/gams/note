@@ -1,6 +1,12 @@
 
+Introduction to GAMs:
 https://bookdown.org/ltupper/340f21_notes/m8-gams.html
 
 
+Highly visual blog post about GAMs:
 https://m-clark.github.io/generalized-additive-models/technical.html
+
+
+Great blog post about using and interpreting GAMs (with marginaleffects)
+https://ecogambler.netlify.app/blog/interpreting-gams/
 
