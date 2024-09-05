@@ -55,11 +55,132 @@ $\theta_2$ |  $p(Data_1, \theta_2) = p(\theta_2 | Data_1)p(Data_1)$ | $\dots$ | 
 $\dots$ | $\dots$ | $\dots$ | $\dots$
 **Marginal ($Data$)** | $p(Data_1)$ | $\dots$ | $1$
 
-In each cell we have the joint probability of a parameter value and data value occurring together. We know that Bayes' rule is $p(\theta | Data) = \frac{p(Data, \theta)}{p(Data)}$, so the numerator comes from these joint probabilities. We then normalize by the marginal probability of the data, which comes from the margin of the column of interest.  
+In each cell we have the joint probability of a parameter value and data value occurring together. We know that Bayes' rule is $p(\theta | Data) = \frac{p(Data, \theta)}{p(Data)}$, so we can see that the numerator comes from these joint probabilities. We then normalize by the marginal probability of the data, which comes from the margin of the column of interest.  
 Thus, when the parameter of interest is assigned to the rows of the table, Bayes' rule is the act of reassigning credibility from the row margins to a specific column.  
 Without any $Data$, the best guess for $\theta$ comes from its marginal distribution, $p(\theta)$. But when we get some observation $Data_1$, we can redistribute credibility by focusing on the $Data_1$ column, where the joint probability for any $\theta_i$ is $p(Data_1, \theta_i) = p(\theta_i | Data_1) p(Data_1)$. By then dividing by $p(Data_1)$, we get an updated probability for $\theta_i$ conditional on the data we've received - $p(\theta_i | Data)$.  
 
 To use the eye-color X hair-color example: without any knowledge of a person's hair color, our best guess for their eye color is the marginal distribution of eye color. But if we know their hair is black, then this changes the probabilities assigned to each eye color. We want to incorporate this new information by conditioning on it, and we compute $p(\text{Eye color} | \text{Black hair})$ using Bayes' rule.
+
+
+
+## 2 Coins Example
+
+An illustrative example from my probability class:  
+
+We hold a bag that contains 2 types of coins - a *fair* coin which has probability of tails $p(tails) = 0.5$ and $p(heads) = 0.5)$, and a *biased* coin which has probability of tails $p(tails = 0.9)$ and $p(heads) = 0.1$. We know that $80\%$ of the coins in the bag are fair, and $20\%$ are biased.  
+We take a random coin from the bag and flip it $10$ times (independent trials), observing $6$ tails (and $4$ heads).  
+What is the probability that the coin is biased?
+
+The question asks us to compute $p(\text{biased} | \text{observed 6 tails})$. So the parameter we are really interested in is *biased* versus *fair* - which can also be interpreted as determining which $p(tails)$ generated the data we observed (0.5 or 0.9?).    
+
+By Bayes' rule,  
+$$
+p(\text{biased} | \text{observed 6 tails}) = \frac{p(\text{observed 6 tails} | \text{biased}) p(\text{biased})}{p(\text{observed 6 tails})}
+$$
+
+This is useful because, from the story, we know enough to compute all of these individual quantities:   
+
+- We know a priori that the probability of drawing a biased coin is $p(\text{biased}) = 0.2$. The $p(\text{biased})$ term in the numerator is called the **prior**, because it encodes the prior information we have on the parameter of interest, before we see the data.  
+
+- Next, we can easily compute the $p(\text{observed 5 tails} | \text{biased})$ by using the Binomial distribution.  
+Since each coin flip is independent, the total number of tails observed can be modeled by a Binomial random variable with parameters $n = 10$ (total number of coin flips) and $p = 0.9$ (the probability of flipping a tails while using a biased coin).    
+Using the probability mass function for the Binomial distribution, $p(\text{observed 6 tails} | \text{biased}) = \binom{10}{6} 0.9^6 0.1^4$:  
+
+
+```{r}
+choose(10, 6) * (0.9^6) * (0.1^4)
+```
+
+- We can use the same strategy to compute the probability of observing 6 tails given a fair coin, which we will need later. $p(\text{observed 6 tails} | \text{fair}) = \binom{10}{6} 0.5^6 0.5^4$:  
+
+```{r}
+choose(10, 6) * (0.5^6) * (0.5^4)
+```
+- Notice that the probability is much higher for the fair coin than the biased coin. This agrees with intuition, since seeing 6/10 tails seems fairly likely for a fair coin, and quite unlikely for the biased coin where we would expect 9/10 tails on average.  
+Together, these 2 quantities represent values of the **likelihood** function, since we hold the data fixed and vary the parameter ($p$). The likelihood function tells us how likely it is to observe data given a specific parameter value. As we can see in this example, a parameter value that makes the data more likely will have a higher likelihood value.
+    - The actual likelihood function could be written as $l(p | x) = {10 \choose 6} p^6 (1-p)^4$, where $x$ denotes "data", which is just the outcome of our coin flips in this case. Note that each of the above quantities are valid probabilities computed from valid probability distributions, but in general, the likelihood function is not a probability distribution. Since we hold the data fixed and vary the parameter, integrating (or summing up in the discrete case) the likelihood function will not necessarily sum to 1 (consider that the $Binomial(n, p)$ distribution sums to 1 when we sum over all its possible values, from $0$ to $n$, not all of the possible values of $p$, which range from $0$ to $1$ in general).
+
+
+- Finally, the denominator calls for the marginal probability of observing 6 tails. This is not given to us by the story, and in practice would have to be computed by repeatedly flipping coins of both varieties while ignoring their biasedness, and then computing the proportion of tails. Computing this requires us to marginalize over (sum over) the two types of coins, which effectively computes the probability of observing 6 tails while ignoring the biasedness of the coin. We can use the law of total probability here because we know that the types of coins partition our sample space - we either draw a fair coin or a biased coin, but not both. Thus:  
+$$
+p(\text{observed 6 tails}) = p(\text{6 tails} | \text{fair}) p(\text{fair}) + p(\text{6 tails} | \text{biased}) p(\text{biased})
+$$
+    - The law of total probability states that if $B_1$ and $B_2$ are events that partition the sample space, then $P(A) = P(A \cap B_1) + P(A \cap B_2)$ (draw a Venn diagram to see). Then consider that $P(A | B_i) = \frac{P(A \cap B_i)}{p(B_i)}$, so $P(A) = P(A | B_1)P(B_1) + P(A | B_2)P(B_2)$. 
+
+
+Now we have everything we need to compute the probability that the coin is biased, given our observation of 6 tails, which is known as the **posterior probability**:  
+
+$$
+p(\text{biased} | \text{6 tails}) = \frac{p(\text{6 tails} | \text{biased}) p(\text{biased})}{p(\text{6 tails} | \text{biased}) p(\text{biased}) + p(\text{6 tails} | \text{fair})p(\text{fair})} = \frac{0.011\cdot0.2}{0.011 \cdot 0.2 + 0.205 \cdot 0.8}
+$$
+```{r}
+#| code-fold: true
+two_coins_posterior <- function(
+        prior_fair = 0.8,
+        prob_tails_fair = 0.5,
+        prob_tails_biased = 0.9,
+        num_flips = 10,
+        num_tails = 6
+) {
+    prior_biased <- 1 - prior_fair
+    likelihood_biased <- choose(num_flips, num_tails) *
+        (prob_tails_biased^num_tails) *
+        (1 - prob_tails_biased)^(num_flips - num_tails)
+    likelihood_fair <- choose(num_flips, num_tails) *
+        (prob_tails_fair^num_tails) *
+        (1 - prob_tails_fair)^(num_flips - num_tails)
+    
+    posterior <- (likelihood_biased * prior_biased) /
+      ((likelihood_biased * prior_biased) + (likelihood_fair * prior_fair))
+    
+    return(posterior)
+}
+```
+
+```{r}
+two_coins_posterior(
+    prior_fair = 0.8,
+    prob_tails_fair = 0.5,
+    prob_tails_biased = 0.9,
+    num_flips = 10,
+    num_tails = 6
+)
+```
+
+
+We can see there is about a $1.3\%$ chance that the coin is biased, given our observation of 6 tails. This is quite small since 6 tails would be a fairly low number for a coin with such an extreme bias.  
+
+We can vary some of the parameters of the experiment to see how it affects the posterior probability.  
+
+For example, if the biased coin is only slightly biased, the posterior probability increases quite a bit.  
+
+```{r}
+two_coins_posterior(
+    prior_fair = 0.8,
+    prob_tails_fair = 0.5,
+    prob_tails_biased = 0.6,
+    num_flips = 10,
+    num_tails = 6
+)
+```
+
+If we now increase the quantity of data, but maintain the 6/10 ratio, the posterior probability becomes quite large. This is intuitive, as now the data strongly suggests that the underlying probability of tails is 0.6, which agrees with the biased coin.  
+
+```{r}
+two_coins_posterior(
+    prior_fair = 0.8,
+    prob_tails_biased = 0.6,
+    num_flips = 100,
+    num_tails = 60
+)
+```
+
+
+I like this fairly simple example because it is enough to start to imagine how Bayes' rule can be applied to scientific problems.  
+Here our parameter of interest is the "biasedness of the coin", and by recording flips we've collected data to help to inform our belief about this parameter, which directly mirrors the scientific process! In practice, we'd be interested in the actual parameter $p$ of the Binomial distribution, which we would assign some scientific interpretation (e.g., if $p$ is the probability of testing positive for a disease). Thus we would consider a whole range of $p$ values, which would make the computation of the denominator more complicated (we have to marginalize out $p$, which is continuous on $[0, 1]$).  
+
+The analogy goes even further though. In order to compute the posterior, we had to make some assumptions about the data (we assumed each coin flip is independent) so that we could model the data using some known distribution (the Binomial) for which we can calculate the probability density/mass function (and thus the likelihood). This is often how scientific questions are approached. We also had to specify a prior probability on the parameter of interest, reflecting what we know about the coin a priori. In Bayesian analysis, a prior is always required.  
+Computing the denominator required some more work, which is fitting since this is historically what made Bayesian analysis difficult. For higher dimensional problems, it becomes difficult or impossible to compute the denominator, and we must rely on other tools like Markov Chain Monte Carlo methods to compute the posterior with just the likelihood and prior.  
 
 
 
