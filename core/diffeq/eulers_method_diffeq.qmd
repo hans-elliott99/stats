@@ -1,5 +1,5 @@
 ---
-title: "Intro to Differential Equations: Solving separable equations, Euler's method, and direction fields"
+title: "Intro to Differential Equations"
 author: "H Elliott"
 format:
     gfm:
@@ -8,6 +8,9 @@ format:
 toc: true
 ---
 
+# Intro to Differential Equations
+
+## Separable equations, Euler's method, and direction fields
 
 Some basic examination of differential equations and their solutions.  
 
@@ -302,7 +305,7 @@ lines(tlin, sol(tlin, A = -5, R = 5, k = 0.5), col = "black", lty = 1)
 
 ## Infection in a population
 
-The change in the size of the infected population, $y$, over time, $t$, with total population, $P$, is given by:  
+The change in the size of the infected population, $y$, over time, $t$, with total population, $P$, can be modeled by:  
 
 $$
 \frac{dy}{dt} = k y (P - y)
@@ -339,16 +342,30 @@ plot_directionfield(f = make_diffeq(P = 10, k = 0.1),
                     t_range = c(0, 10), y_range = c(0, 12))
 mtext(side=3, line=0.5, at=0, adj=0, cex=0.7,
       paste("Initial population =", 10))
+# plot solution for initial condition y(0) = 1
+tlin <- seq(0, 10, 0.01)
+lines(tlin, sol(tlin, P = 10, k = 0.1, C = 1/9), col = "black", lty = 1)
+```
+
+
+Solution curves for three different infection rates ($k$) are shown - the larger the $k$, the faster the infected population $y$ grows to the total population $P$.  
+
+```{r}
+#| code-fold: true
 
 # plot solution for a few different infection rates
 tlin <- seq(0, 10, 0.01)
-lines(tlin, sol(tlin, P = 10, k = 0.05, C = 1/9), col = "black", lty = 1)
-lines(tlin, sol(tlin, P = 10, k = 0.1, C = 1/9), col = "black", lty = 1)
-lines(tlin, sol(tlin, P = 10, k = 0.3, C = 1/9), col = "black", lty = 1)
+plot(tlin, sol(tlin, P = 10, k = 0.3, C = 1/9),
+     type = "l", col = "black", lty = 1,
+     xlab = "t", ylab = "y")
+lines(tlin, sol(tlin, P = 10, k = 0.1, C = 1/9), col = "black", lty = 2)
+lines(tlin, sol(tlin, P = 10, k = 0.05, C = 1/9), col = "black", lty = 3)
+legend("bottomright",
+       legend = c("k = 0.3", "k = 0.1", "k = 0.05"),
+       col = "black", lty = 1:3, cex = 0.8, bty = "n")
 
 ```
 
-Solutions for three different infection rates ($k$) are shown - the larger the $k$, the faster the infected population $y$ grows to the total population $P$.  
 
 Solving the differential equation:  
 

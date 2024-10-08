@@ -1,7 +1,9 @@
-# Intro to Differential Equations: Solving separable equations, Euler’s
-method, and direction fields
+# Intro to Differential Equations
 H Elliott
 
+- [Intro to Differential Equations](#intro-to-differential-equations)
+  - [Separable equations, Euler’s method, and direction
+    fields](#separable-equations-eulers-method-and-direction-fields)
 - [Euler’s method function](#eulers-method-function)
 - [Example 1](#example-1)
 - [Example 2](#example-2)
@@ -11,6 +13,10 @@ H Elliott
     heating](#newtons-law-of-cooling-or-heating)
   - [Infection in a population](#infection-in-a-population)
   - [Some random direction fields](#some-random-direction-fields)
+
+# Intro to Differential Equations
+
+## Separable equations, Euler’s method, and direction fields
 
 Some basic examination of differential equations and their solutions.
 
@@ -372,7 +378,7 @@ lines(tlin, sol(tlin, A = -5, R = 5, k = 0.5), col = "black", lty = 1)
 The change in the size of the infected population,
 ![y](https://latex.codecogs.com/svg.latex?y "y"), over time,
 ![t](https://latex.codecogs.com/svg.latex?t "t"), with total population,
-![P](https://latex.codecogs.com/svg.latex?P "P"), is given by:
+![P](https://latex.codecogs.com/svg.latex?P "P"), can be modeled by:
 
 ![\frac{dy}{dt} = k y (P - y)](https://latex.codecogs.com/svg.latex?%5Cfrac%7Bdy%7D%7Bdt%7D%20%3D%20k%20y%20%28P%20-%20y%29 "\frac{dy}{dt} = k y (P - y)")
 
@@ -416,22 +422,39 @@ plot_directionfield(f = make_diffeq(P = 10, k = 0.1),
                     t_range = c(0, 10), y_range = c(0, 12))
 mtext(side=3, line=0.5, at=0, adj=0, cex=0.7,
       paste("Initial population =", 10))
-
-# plot solution for a few different infection rates
+# plot solution for initial condition y(0) = 1
 tlin <- seq(0, 10, 0.01)
-lines(tlin, sol(tlin, P = 10, k = 0.05, C = 1/9), col = "black", lty = 1)
 lines(tlin, sol(tlin, P = 10, k = 0.1, C = 1/9), col = "black", lty = 1)
-lines(tlin, sol(tlin, P = 10, k = 0.3, C = 1/9), col = "black", lty = 1)
 ```
 
 ![](eulers_method_diffeq_files/figure-commonmark/unnamed-chunk-9-1.png)
 
-Solutions for three different infection rates
+Solution curves for three different infection rates
 (![k](https://latex.codecogs.com/svg.latex?k "k")) are shown - the
 larger the ![k](https://latex.codecogs.com/svg.latex?k "k"), the faster
 the infected population ![y](https://latex.codecogs.com/svg.latex?y "y")
 grows to the total population
 ![P](https://latex.codecogs.com/svg.latex?P "P").
+
+<details>
+<summary>Code</summary>
+
+``` r
+# plot solution for a few different infection rates
+tlin <- seq(0, 10, 0.01)
+plot(tlin, sol(tlin, P = 10, k = 0.3, C = 1/9),
+     type = "l", col = "black", lty = 1,
+     xlab = "t", ylab = "y")
+lines(tlin, sol(tlin, P = 10, k = 0.1, C = 1/9), col = "black", lty = 2)
+lines(tlin, sol(tlin, P = 10, k = 0.05, C = 1/9), col = "black", lty = 3)
+legend("bottomright",
+       legend = c("k = 0.3", "k = 0.1", "k = 0.05"),
+       col = "black", lty = 1:3, cex = 0.8, bty = "n")
+```
+
+</details>
+
+![](eulers_method_diffeq_files/figure-commonmark/unnamed-chunk-10-1.png)
 
 Solving the differential equation:
 
@@ -463,7 +486,7 @@ plot_directionfield(f = \(y, t) t + y)
 plot_directionfield(f = \(t, y) sin(t * y))
 ```
 
-![](eulers_method_diffeq_files/figure-commonmark/unnamed-chunk-10-1.png)
+![](eulers_method_diffeq_files/figure-commonmark/unnamed-chunk-11-1.png)
 
 ``` r
 par(mfrow = c(1, 2))
@@ -471,7 +494,7 @@ plot_directionfield(f = \(t, y) sin(t) * y)
 plot_directionfield(f = \(t, y) sin(t) * y + cos(t))
 ```
 
-![](eulers_method_diffeq_files/figure-commonmark/unnamed-chunk-11-1.png)
+![](eulers_method_diffeq_files/figure-commonmark/unnamed-chunk-12-1.png)
 
 ``` r
 par(mfrow = c(1, 2))
@@ -479,4 +502,4 @@ plot_directionfield(f = \(y, t) sin(t) + cos(y))
 plot_directionfield(f = \(y, t) sin(t) + cos(y) + y)
 ```
 
-![](eulers_method_diffeq_files/figure-commonmark/unnamed-chunk-12-1.png)
+![](eulers_method_diffeq_files/figure-commonmark/unnamed-chunk-13-1.png)
