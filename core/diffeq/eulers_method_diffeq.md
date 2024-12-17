@@ -12,6 +12,8 @@ H Elliott
   - [Newton’s law of cooling or
     heating](#newtons-law-of-cooling-or-heating)
   - [Infection in a population](#infection-in-a-population)
+  - [General logistic growth with a carrying
+    capacity](#general-logistic-growth-with-a-carrying-capacity)
   - [Some random direction fields](#some-random-direction-fields)
 
 # Intro to Differential Equations
@@ -378,14 +380,15 @@ lines(tlin, sol(tlin, A = -5, R = 5, k = 0.5), col = "black", lty = 1)
 The change in the size of the infected population,
 ![y](https://latex.codecogs.com/svg.latex?y "y"), over time,
 ![t](https://latex.codecogs.com/svg.latex?t "t"), with total population,
-![P](https://latex.codecogs.com/svg.latex?P "P"), can be modeled by:
+![P_0](https://latex.codecogs.com/svg.latex?P_0 "P_0"), can be modeled
+by:
 
-![\frac{dy}{dt} = k y (P - y)](https://latex.codecogs.com/svg.latex?%5Cfrac%7Bdy%7D%7Bdt%7D%20%3D%20k%20y%20%28P%20-%20y%29 "\frac{dy}{dt} = k y (P - y)")
+![\frac{dy}{dt} = k y (P_0 - y)](https://latex.codecogs.com/svg.latex?%5Cfrac%7Bdy%7D%7Bdt%7D%20%3D%20k%20y%20%28P_0%20-%20y%29 "\frac{dy}{dt} = k y (P_0 - y)")
 
 This can be though of as being proportional to the number of infected
 people (![y](https://latex.codecogs.com/svg.latex?y "y")) times the
 number of uninfected people in the population
-(![P - y](https://latex.codecogs.com/svg.latex?P%20-%20y "P - y")),
+(![P_0 - y](https://latex.codecogs.com/svg.latex?P_0%20-%20y "P_0 - y")),
 where ![k](https://latex.codecogs.com/svg.latex?k "k") is a constant
 that acts like an “infection rate” for the particular disease.
 
@@ -393,7 +396,7 @@ This is a separable equation so it can be solved - you need to use
 partial fractions to integrate (steps shown below).  
 The solution:
 
-![y = \frac{P C e^{Pkt}}{1 + C e^{Pkt}}](https://latex.codecogs.com/svg.latex?y%20%3D%20%5Cfrac%7BP%20C%20e%5E%7BPkt%7D%7D%7B1%20%2B%20C%20e%5E%7BPkt%7D%7D "y = \frac{P C e^{Pkt}}{1 + C e^{Pkt}}")
+![y = \frac{P_0 C e^{P_0kt}}{1 + C e^{P_0kt}}](https://latex.codecogs.com/svg.latex?y%20%3D%20%5Cfrac%7BP_0%20C%20e%5E%7BP_0kt%7D%7D%7B1%20%2B%20C%20e%5E%7BP_0kt%7D%7D "y = \frac{P_0 C e^{P_0kt}}{1 + C e^{P_0kt}}")
 
 The particular solutions are logistic curves, as you can tell by their
 S-shape.
@@ -404,9 +407,9 @@ depend on the initial condition.
 If
 ![y(t = 0) = 1](https://latex.codecogs.com/svg.latex?y%28t%20%3D%200%29%20%3D%201 "y(t = 0) = 1")
 (one infected person at time 0), then
-![1 = \frac{P C}{1 + C}](https://latex.codecogs.com/svg.latex?1%20%3D%20%5Cfrac%7BP%20C%7D%7B1%20%2B%20C%7D "1 = \frac{P C}{1 + C}")
+![1 = \frac{P_0 C}{1 + C}](https://latex.codecogs.com/svg.latex?1%20%3D%20%5Cfrac%7BP_0%20C%7D%7B1%20%2B%20C%7D "1 = \frac{P_0 C}{1 + C}")
 so
-![C = \frac{1}{P - 1}](https://latex.codecogs.com/svg.latex?C%20%3D%20%5Cfrac%7B1%7D%7BP%20-%201%7D "C = \frac{1}{P - 1}").
+![C = \frac{1}{P_0 - 1}](https://latex.codecogs.com/svg.latex?C%20%3D%20%5Cfrac%7B1%7D%7BP_0%20-%201%7D "C = \frac{1}{P_0 - 1}").
 
 ``` r
 make_diffeq <- \(P, k) return( \(t, y) k * y * (P - y) )
@@ -434,7 +437,7 @@ Solution curves for three different infection rates
 larger the ![k](https://latex.codecogs.com/svg.latex?k "k"), the faster
 the infected population ![y](https://latex.codecogs.com/svg.latex?y "y")
 grows to the total population
-![P](https://latex.codecogs.com/svg.latex?P "P").
+![P_0](https://latex.codecogs.com/svg.latex?P_0 "P_0").
 
 <details>
 <summary>Code</summary>
@@ -458,25 +461,27 @@ legend("bottomright",
 
 Solving the differential equation:
 
-- ![\frac{dy}{dt} = k y (P - y)](https://latex.codecogs.com/svg.latex?%5Cfrac%7Bdy%7D%7Bdt%7D%20%3D%20k%20y%20%28P%20-%20y%29 "\frac{dy}{dt} = k y (P - y)")  
-- ![\frac{dy}{y (P - y)} = k dt](https://latex.codecogs.com/svg.latex?%5Cfrac%7Bdy%7D%7By%20%28P%20-%20y%29%7D%20%3D%20k%20dt "\frac{dy}{y (P - y)} = k dt")  
-- ![\int \frac{dy}{y (P - y)} = \int k dt](https://latex.codecogs.com/svg.latex?%5Cint%20%5Cfrac%7Bdy%7D%7By%20%28P%20-%20y%29%7D%20%3D%20%5Cint%20k%20dt "\int \frac{dy}{y (P - y)} = \int k dt")
-  - ![\frac{1}{y(P - y)} = \frac{A(P -y) + By}{y(P-y)} = \frac{(B-A)y + AP}{y(P-y)}](https://latex.codecogs.com/svg.latex?%5Cfrac%7B1%7D%7By%28P%20-%20y%29%7D%20%3D%20%5Cfrac%7BA%28P%20-y%29%20%2B%20By%7D%7By%28P-y%29%7D%20%3D%20%5Cfrac%7B%28B-A%29y%20%2B%20AP%7D%7By%28P-y%29%7D "\frac{1}{y(P - y)} = \frac{A(P -y) + By}{y(P-y)} = \frac{(B-A)y + AP}{y(P-y)}")  
+- ![\frac{dy}{dt} = k y (P_0 - y)](https://latex.codecogs.com/svg.latex?%5Cfrac%7Bdy%7D%7Bdt%7D%20%3D%20k%20y%20%28P_0%20-%20y%29 "\frac{dy}{dt} = k y (P_0 - y)")  
+- ![\frac{dy}{y (P_0 - y)} = k dt](https://latex.codecogs.com/svg.latex?%5Cfrac%7Bdy%7D%7By%20%28P_0%20-%20y%29%7D%20%3D%20k%20dt "\frac{dy}{y (P_0 - y)} = k dt")  
+- ![\int \frac{dy}{y (P_0 - y)} = \int k dt](https://latex.codecogs.com/svg.latex?%5Cint%20%5Cfrac%7Bdy%7D%7By%20%28P_0%20-%20y%29%7D%20%3D%20%5Cint%20k%20dt "\int \frac{dy}{y (P_0 - y)} = \int k dt")
+  - ![\frac{1}{y(P_0 - y)} = \frac{A(P_0 -y) + By}{y(P_0-y)} = \frac{(B-A)y + AP_0}{y(P_0-y)}](https://latex.codecogs.com/svg.latex?%5Cfrac%7B1%7D%7By%28P_0%20-%20y%29%7D%20%3D%20%5Cfrac%7BA%28P_0%20-y%29%20%2B%20By%7D%7By%28P_0-y%29%7D%20%3D%20%5Cfrac%7B%28B-A%29y%20%2B%20AP_0%7D%7By%28P_0-y%29%7D "\frac{1}{y(P_0 - y)} = \frac{A(P_0 -y) + By}{y(P_0-y)} = \frac{(B-A)y + AP_0}{y(P_0-y)}")  
   - so
     ![B - A = 0 \Rightarrow A = B](https://latex.codecogs.com/svg.latex?B%20-%20A%20%3D%200%20%5CRightarrow%20A%20%3D%20B "B - A = 0 \Rightarrow A = B")  
   - and
-    ![AP = 1 \Rightarrow A = B = \frac{1}{P}](https://latex.codecogs.com/svg.latex?AP%20%3D%201%20%5CRightarrow%20A%20%3D%20B%20%3D%20%5Cfrac%7B1%7D%7BP%7D "AP = 1 \Rightarrow A = B = \frac{1}{P}")  
+    ![AP_0 = 1 \Rightarrow A = B = \frac{1}{P_0}](https://latex.codecogs.com/svg.latex?AP_0%20%3D%201%20%5CRightarrow%20A%20%3D%20B%20%3D%20%5Cfrac%7B1%7D%7BP_0%7D "AP_0 = 1 \Rightarrow A = B = \frac{1}{P_0}")  
   - so
-    ![\int \frac{dy}{y (P-y)} = 1/P \int dy/y + 1/P \int dy/(P-y) dy](https://latex.codecogs.com/svg.latex?%5Cint%20%5Cfrac%7Bdy%7D%7By%20%28P-y%29%7D%20%3D%201%2FP%20%5Cint%20dy%2Fy%20%2B%201%2FP%20%5Cint%20dy%2F%28P-y%29%20dy "\int \frac{dy}{y (P-y)} = 1/P \int dy/y + 1/P \int dy/(P-y) dy")  
-- ![\frac{1}{P} \ln\|y/(P-y)\| = kt + C_0](https://latex.codecogs.com/svg.latex?%5Cfrac%7B1%7D%7BP%7D%20%5Cln%7Cy%2F%28P-y%29%7C%20%3D%20kt%20%2B%20C_0 "\frac{1}{P} \ln|y/(P-y)| = kt + C_0")  
-- ![\ln\|y/(P-y)\| = Pkt + C_0P](https://latex.codecogs.com/svg.latex?%5Cln%7Cy%2F%28P-y%29%7C%20%3D%20Pkt%20%2B%20C_0P "\ln|y/(P-y)| = Pkt + C_0P")  
-- ![y/(P-y) = \pm e^{Pkt + C_0P} = y / (P - y) = Ce^{Pkt}](https://latex.codecogs.com/svg.latex?y%2F%28P-y%29%20%3D%20%5Cpm%20e%5E%7BPkt%20%2B%20C_0P%7D%20%3D%20y%20%2F%20%28P%20-%20y%29%20%3D%20Ce%5E%7BPkt%7D "y/(P-y) = \pm e^{Pkt + C_0P} = y / (P - y) = Ce^{Pkt}"),
+    ![\int \frac{dy}{y (P_0-y)} = 1/P_0 \int dy/y + 1/P_0 \int dy/(P_0-y) dy](https://latex.codecogs.com/svg.latex?%5Cint%20%5Cfrac%7Bdy%7D%7By%20%28P_0-y%29%7D%20%3D%201%2FP_0%20%5Cint%20dy%2Fy%20%2B%201%2FP_0%20%5Cint%20dy%2F%28P_0-y%29%20dy "\int \frac{dy}{y (P_0-y)} = 1/P_0 \int dy/y + 1/P_0 \int dy/(P_0-y) dy")  
+- ![\frac{1}{P_0} \ln\|y/(P_0-y)\| = kt + C_0](https://latex.codecogs.com/svg.latex?%5Cfrac%7B1%7D%7BP_0%7D%20%5Cln%7Cy%2F%28P_0-y%29%7C%20%3D%20kt%20%2B%20C_0 "\frac{1}{P_0} \ln|y/(P_0-y)| = kt + C_0")  
+- ![\ln\|y/(P_0-y)\| = P_0kt + C_0P_0](https://latex.codecogs.com/svg.latex?%5Cln%7Cy%2F%28P_0-y%29%7C%20%3D%20P_0kt%20%2B%20C_0P_0 "\ln|y/(P_0-y)| = P_0kt + C_0P_0")  
+- ![y/(P_0-y) = \pm e^{P_0kt + C_0P_0} = y / (P_0 - y) = Ce^{P_0kt}](https://latex.codecogs.com/svg.latex?y%2F%28P_0-y%29%20%3D%20%5Cpm%20e%5E%7BP_0kt%20%2B%20C_0P_0%7D%20%3D%20y%20%2F%20%28P_0%20-%20y%29%20%3D%20Ce%5E%7BP_0kt%7D "y/(P_0-y) = \pm e^{P_0kt + C_0P_0} = y / (P_0 - y) = Ce^{P_0kt}"),
   where
-  ![C = \pm e^{C_0P}](https://latex.codecogs.com/svg.latex?C%20%3D%20%5Cpm%20e%5E%7BC_0P%7D "C = \pm e^{C_0P}")  
-- ![y = (P-y)Ce^{Pkt} = PC{e^{Pkt}} - yCe^{Pkt}](https://latex.codecogs.com/svg.latex?y%20%3D%20%28P-y%29Ce%5E%7BPkt%7D%20%3D%20PC%7Be%5E%7BPkt%7D%7D%20-%20yCe%5E%7BPkt%7D "y = (P-y)Ce^{Pkt} = PC{e^{Pkt}} - yCe^{Pkt}")  
-- ![y + yCe^{Pkt} = PC{e^{Pkt}}](https://latex.codecogs.com/svg.latex?y%20%2B%20yCe%5E%7BPkt%7D%20%3D%20PC%7Be%5E%7BPkt%7D%7D "y + yCe^{Pkt} = PC{e^{Pkt}}")  
-- ![y(1 + Ce^{Pkt}) = PC{e^{Pkt}}](https://latex.codecogs.com/svg.latex?y%281%20%2B%20Ce%5E%7BPkt%7D%29%20%3D%20PC%7Be%5E%7BPkt%7D%7D "y(1 + Ce^{Pkt}) = PC{e^{Pkt}}")  
-- ![y = \frac{P C e^{Pkt}}{1 + C e^{Pkt}}](https://latex.codecogs.com/svg.latex?y%20%3D%20%5Cfrac%7BP%20C%20e%5E%7BPkt%7D%7D%7B1%20%2B%20C%20e%5E%7BPkt%7D%7D "y = \frac{P C e^{Pkt}}{1 + C e^{Pkt}}")
+  ![C = \pm e^{C_0P_0}](https://latex.codecogs.com/svg.latex?C%20%3D%20%5Cpm%20e%5E%7BC_0P_0%7D "C = \pm e^{C_0P_0}")  
+- ![y = (P_0-y)Ce^{P_0kt} = P_0C{e^{P_0kt}} - yCe^{P_0kt}](https://latex.codecogs.com/svg.latex?y%20%3D%20%28P_0-y%29Ce%5E%7BP_0kt%7D%20%3D%20P_0C%7Be%5E%7BP_0kt%7D%7D%20-%20yCe%5E%7BP_0kt%7D "y = (P_0-y)Ce^{P_0kt} = P_0C{e^{P_0kt}} - yCe^{P_0kt}")  
+- ![y + yCe^{P_0kt} = P_0C{e^{P_0kt}}](https://latex.codecogs.com/svg.latex?y%20%2B%20yCe%5E%7BP_0kt%7D%20%3D%20P_0C%7Be%5E%7BP_0kt%7D%7D "y + yCe^{P_0kt} = P_0C{e^{P_0kt}}")  
+- ![y(1 + Ce^{P_0kt}) = P_0C{e^{P_0kt}}](https://latex.codecogs.com/svg.latex?y%281%20%2B%20Ce%5E%7BP_0kt%7D%29%20%3D%20P_0C%7Be%5E%7BP_0kt%7D%7D "y(1 + Ce^{P_0kt}) = P_0C{e^{P_0kt}}")  
+- ![y = \frac{P_0 C e^{P_0kt}}{1 + C e^{P_0kt}}](https://latex.codecogs.com/svg.latex?y%20%3D%20%5Cfrac%7BP_0%20C%20e%5E%7BP_0kt%7D%7D%7B1%20%2B%20C%20e%5E%7BP_0kt%7D%7D "y = \frac{P_0 C e^{P_0kt}}{1 + C e^{P_0kt}}")
+
+## General logistic growth with a carrying capacity
 
 ## Some random direction fields
 

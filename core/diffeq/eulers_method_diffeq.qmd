@@ -305,19 +305,19 @@ lines(tlin, sol(tlin, A = -5, R = 5, k = 0.5), col = "black", lty = 1)
 
 ## Infection in a population
 
-The change in the size of the infected population, $y$, over time, $t$, with total population, $P$, can be modeled by:  
+The change in the size of the infected population, $y$, over time, $t$, with total population, $P_0$, can be modeled by:  
 
 $$
-\frac{dy}{dt} = k y (P - y)
+\frac{dy}{dt} = k y (P_0 - y)
 $$
 
-This can be though of as being proportional to the number of infected people ($y$) times the number of uninfected people in the population ($P - y$), where $k$ is a constant that acts like an "infection rate" for the particular disease.  
+This can be though of as being proportional to the number of infected people ($y$) times the number of uninfected people in the population ($P_0 - y$), where $k$ is a constant that acts like an "infection rate" for the particular disease.  
 
 
 This is a separable equation so it can be solved - you need to use partial fractions to integrate (steps shown below).  
 The solution: 
 $$
-y = \frac{P C e^{Pkt}}{1 + C e^{Pkt}}
+y = \frac{P_0 C e^{P_0kt}}{1 + C e^{P_0kt}}
 $$    
 
 The particular solutions are logistic curves, as you can tell by their S-shape.  
@@ -325,7 +325,7 @@ The particular solutions are logistic curves, as you can tell by their S-shape.
 
 $C$ is a constant that will depend on the initial condition.  
 
-If $y(t = 0) = 1$ (one infected person at time 0), then $1 = \frac{P C}{1 + C}$ so $C = \frac{1}{P - 1}$.  
+If $y(t = 0) = 1$ (one infected person at time 0), then $1 = \frac{P_0 C}{1 + C}$ so $C = \frac{1}{P_0 - 1}$.  
 
 
 ```{r}
@@ -348,7 +348,7 @@ lines(tlin, sol(tlin, P = 10, k = 0.1, C = 1/9), col = "black", lty = 1)
 ```
 
 
-Solution curves for three different infection rates ($k$) are shown - the larger the $k$, the faster the infected population $y$ grows to the total population $P$.  
+Solution curves for three different infection rates ($k$) are shown - the larger the $k$, the faster the infected population $y$ grows to the total population $P_0$.  
 
 ```{r}
 #| code-fold: true
@@ -369,20 +369,26 @@ legend("bottomright",
 
 Solving the differential equation:  
 
-- $\frac{dy}{dt} = k y (P - y)$  
-- $\frac{dy}{y (P - y)} = k dt$  
-- $\int \frac{dy}{y (P - y)} = \int k dt$  
-  - $\frac{1}{y(P - y)} = \frac{A(P -y) + By}{y(P-y)} = \frac{(B-A)y + AP}{y(P-y)}$  
+- $\frac{dy}{dt} = k y (P_0 - y)$  
+- $\frac{dy}{y (P_0 - y)} = k dt$  
+- $\int \frac{dy}{y (P_0 - y)} = \int k dt$  
+  - $\frac{1}{y(P_0 - y)} = \frac{A(P_0 -y) + By}{y(P_0-y)} = \frac{(B-A)y + AP_0}{y(P_0-y)}$  
   - so $B - A = 0 \Rightarrow A = B$  
-  - and $AP = 1 \Rightarrow A = B = \frac{1}{P}$  
-  - so $\int \frac{dy}{y (P-y)} = 1/P \int dy/y + 1/P \int dy/(P-y) dy$  
-- $\frac{1}{P} \ln|y/(P-y)| = kt + C_0$  
-- $\ln|y/(P-y)| = Pkt + C_0P$  
-- $y/(P-y) = \pm e^{Pkt + C_0P} = y / (P - y) = Ce^{Pkt}$, where $C = \pm e^{C_0P}$  
-- $y = (P-y)Ce^{Pkt} =  PC{e^{Pkt}} - yCe^{Pkt}$  
-- $y + yCe^{Pkt} = PC{e^{Pkt}}$  
-- $y(1 + Ce^{Pkt}) = PC{e^{Pkt}}$  
-- $y = \frac{P C e^{Pkt}}{1 + C e^{Pkt}}$  
+  - and $AP_0 = 1 \Rightarrow A = B = \frac{1}{P_0}$  
+  - so $\int \frac{dy}{y (P_0-y)} = 1/P_0 \int dy/y + 1/P_0 \int dy/(P_0-y) dy$  
+- $\frac{1}{P_0} \ln|y/(P_0-y)| = kt + C_0$  
+- $\ln|y/(P_0-y)| = P_0kt + C_0P_0$  
+- $y/(P_0-y) = \pm e^{P_0kt + C_0P_0} = y / (P_0 - y) = Ce^{P_0kt}$, where $C = \pm e^{C_0P_0}$  
+- $y = (P_0-y)Ce^{P_0kt} =  P_0C{e^{P_0kt}} - yCe^{P_0kt}$  
+- $y + yCe^{P_0kt} = P_0C{e^{P_0kt}}$  
+- $y(1 + Ce^{P_0kt}) = P_0C{e^{P_0kt}}$  
+- $y = \frac{P_0 C e^{P_0kt}}{1 + C e^{P_0kt}}$  
+
+
+
+## General logistic growth with a carrying capacity
+
+
 
 
 
