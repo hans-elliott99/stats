@@ -424,5 +424,433 @@ filled.contour(x, y, z,
 
 
 
+# Sample n numbers from {1, 2, ..., n} uniformly at random with replacement.
+# Picks i, j (i < j) are a match if a_i = a_j.
+# What is the expected total # of matches?
+#
+# X = # of matches = sum_{i=1}^{n-1} sum_{j=i+1}^{n} I(a_i = a_j)
+# E[X] = sum_{i=1}^{n-1} sum_{j=i+1}^{n} E[I(a_i = a_j)] (linearity of E)
+#      = sum_{i=1}^{n-1} sum_{j=i+1}^{n} P(a_i = a_j)
+# P(a_i = a_j) = P(a_i = k, a_j = k) for k = 1, 2, ..., n
+#              = sum_{k=1}^{n} P(a_i = k, a_j = k)
+#              = sum_{k=1}^{n} P(a_i = k)P(a_j = k) (independence)
+#              = n * (1/n)^2 = 1/n
+# (n choose 2) pairs of i, j, so E[X] = (n choose 2) * 1/n = (n-1)/2
+
+count_matches <- function(vec) {
+    mtch <- 0
+    for (i in seq(1, length(vec) - 1)) {
+        
+        for (j in seq(i + 1, length(vec))) {
+            if (vec[i] == vec[j]) {
+                mtch <- mtch + 1
+            }
+        }
+    }
+    return(mtch)
+}
+
+num_matches <- function(n, niter = 1e5) {
+    mat <- matrix(sample.int(n, niter * n, replace = TRUE),
+                  nrow = niter, ncol = n)
+    matches <- apply(mat, 1, count_matches)
+    return(matches)
+}
+
+ns <- seq(2, 10, by = 1)
+vec <- numeric(length(ns))
+for (i in seq_along(ns)) {
+    vec[i] <- mean(num_matches(ns[i]))
+}
+plot(ns, vec, type = "b", xlab = "n", ylab = "Expected # of matches",
+     main = "Expected # of matches in n draws from {1, 2, ..., n}")
+lines(ns, (ns - 1)/2, col = "red") # theoretical result
+
+
+mat <- matrix(
+    sample(1:2, 2 * 1e5, replace = TRUE),
+    nrow = 1e5
+)
+# P(X1 = 1, X2 = 1) = 1/4 = P(X1 = 1) * P(X2 = 1)
+mean( apply(mat, 1, \(row) sum(row[1] == 1 && row[2] == 1)) )
+mean( apply(mat, 1, \(row) sum(row == 1)) / 2 )^2
+# P(X1 = 2, X2 = 2) = 1/4 = P(X1 = 2) * P(X2 = 2)
+mean( apply(mat, 1, \(row) sum(row[1] == 2 && row[2] == 2)) )
+mean( apply(mat, 1, \(row) sum(row == 2)) / 2 )^2 
+
+# P(X1 = k, X2 = k) = P(X1 = 1, X2 = 1) + P(X1 = 2, X2 = 2) = 1/2
+mean( apply(mat, 1, \(row) sum(row[1] == 1 && row[2] == 1)) ) +
+    mean( apply(mat, 1, \(row) sum(row[1] == 2 && row[2] == 2)) )
+
+
+
+
+
+
+# Accident occurs at point X on road of length L, uniformly at random.
+# At time of accident, ambulance is at point Y on road, also uniformly at random.
+# Find the expected distance between X and Y, assuming independence.
+l <- 5
+X <- runif(1e6, min = 0, max = l)
+Y <- runif(1e6, min = 0, max = l)
+Z <- abs(X - Y)
+mean(Z)
+l / 3
+#
+sim_fn <- function(l, niter) {
+    if (niter %% 2 != 0) {
+        stop("niter must be even")
+    }
+    xy <- runif(niter * 2, min = 0, max = l)
+    z <- abs(
+        xy[1:niter] - xy[(niter + 1):(2 * niter)]
+    )
+    return(mean(z))
+}
+# Check that the simulation matches the theoretical result.
+ls <- seq(1, 10, by = 1)
+vec <- numeric(length(ls))
+for (i in seq_along(ls)) {
+    vec[i] <- sim_fn(ls[i], 1e6)
+}
+plot(ls, vec, type = "b", xlab = "l", ylab = "E[|X - Y|]",
+     main = "E[|X - Y|] for X, Y ~ Unif(0, l)")
+lines(ls, ls / 3, col = "red")
+
+
+
+
+
+# I have 4 different sweaters which I randomly sample each day.
+# In a 5 day week, what is the expected number of unique sweaters worn?
+#
+# E[X] = 4 * (1 - (3/4)^5)
+niter <- 1e6
+nday <- 5
+mat <- matrix(
+    sample.int(4, size = nday * niter, replace = TRUE),
+    nrow = niter,
+    ncol = 5
+)
+X <- apply(mat, 1, \(row) length(unique(row)))
+mean(X)
+
+
+
+
+#
+#
+num_ducks <- 10
+num_hunts <- 10
+p <- 0.2 # prob. of hitting a duck per hunter
+
+misses_count <- numeric(1e4)
+
+for (i in seq_along(misses_count)) {
+    hit_ducks <- numeric(num_ducks)
+    # duck chosen by each hunter
+    duck <- sample.int(num_ducks, num_hunts, replace = TRUE)
+    # hit success of hunters 1:num_hunts
+    hit <- sample(c(0, 1), num_hunts, prob = c(1 - p, p), replace = TRUE)
+    # which ducks are hit
+    hit_ducks[ duck[hit == 1] ] <- 1
+    
+    misses_count[i] <- num_ducks - sum(hit_ducks)
+}
+
+mean(misses_count)
+num_ducks * (1 - p/num_ducks)^num_hunts
+
+# niter <- 1e3
+# hit <- sample(c(0, 1), niter * num_hunts, replace = TRUE, prob = c(1 - p, p))
+# hit_ducks <- sample.int(num_ducks, niter * nh, replace = TRUE)
+# hit_ducks[hit == 0] <- NA
+# hit_ducks <- matrix(hit_ducks, nrow = niter)
+
+
+
+
+# Generate independent Unif(0,1) r.v. until I see the first Un < 1/3.
+# N is the number of draws I needed to do this.
+# Y is the indicator r.v. that is 1 if Un < 1/9, 0 otherwise.
+# Find joint pmf of (N,Y), marginals, and determine if N,Y independent.
+#
+# Joint PMF is (2/3)^{k-1}(1/9) for y = 1, (2/3)^{k-1}(2/9) for y = 0, and k = 1,2,...
+# N ~ Geom(1/3) so p_N(k) = (2/3)^{k-1}(1/3).
+# p_Y(y) = 1/3 if y = 1 and 2/3 if y = 0
+# They are independent since the joint PMF factors into the product of the marginals.
+sim <- data.frame(
+    N = numeric(1e4),
+    Y = numeric(1e4)
+)
+for (iter in 1:nrow(sim)) {
+    ix <- numeric(0)
+    while (length(ix) == 0) {
+        Ui <- runif(50) ## generate 50 since highly unlikely that none < 1/3
+        ix <- which(Ui < 1/3)
+    }
+    N <- min(ix)
+    Y <- Ui[N] < 1/9
+    sim[iter, ] <- c(N, Y)
+}
+mean(sim[, "Y"]) # expect 1/3
+mean(sim[, "N"]) # N ~ Geom(1/3), so expect 1 / (1/3) = 3
+
+mean(sim[sim$Y == 1, "N"]) # expect 3 due to independence
+mean(sim[sim$Y == 0, "N"]) # expect 3 due to independence
+
+# test the joint pmf
+test <- expand.grid(
+    n = seq(1, 10),
+    y = c(0, 1)
+)
+test$truth <- (2/3)^(test$n - 1) * ifelse(test$y == 1, 1/9, 2/9)
+test$sim <- NA_real_
+for (i in 1:nrow(test)) {
+    n <- test[i, "n"]
+    y <- test[i, "y"]
+    test[i, "sim"] <- nrow(sim[sim$N == n & sim$Y == y, ])/nrow(sim)
+}
+plot(test$truth, test$sim,
+     xlab = "Truth", ylab = "Simulated",
+     main = "Joint PMF Probabilities")
+abline(a = 0, b = 1)
+
+
+
+
+# You have n friends. Friend birth months are iid uniformly distributed.
+# Find expected number of distinct birth months among n friends.
+nfriend <- 13
+res <- numeric(1e6)
+
+# bdays <- sample.int(12, nfriend * 1e6, replace = TRUE)
+# for (i in seq(1, nfriend * 1e6, by = 12)) {
+#     res[i/12] <- length(unique(bdays[i:(i + 11)]))
+# }
+for (i in seq_along(res)) {
+    bdays <- sample.int(12, nfriend, replace = TRUE)
+    res[i] <- length(unique(bdays))
+}
+# expected number of distinct birth months among n friends
+mean(res)
+12 * (1 - (11/12)^nfriend)
+
+# P(X = 12)?
+mean(res == 12)
+(factorial(nfriend)/factorial(2)) * 1/(12^12)
+
+
+
+
+
+
+
+
+
+# Flip a fair coin 30 times. X is the number of heads in the first 20 flips,
+#  Y is the number of heads in the last 20 flips. Find correlation coef.
+# Note: X and Y are not independent, because they share 10 coin flips.
+#   We find positive correlation (1/2) because if there are many heads in the
+#   overlapping flips, then both X and Y will be higher.
+#   The non-overlapping flips are independent of each other and don't contribute
+#   to the covariance or correlation.
+mat <- matrix(NA_integer_, nrow = 1e4, ncol = 2)
+colnames(mat) <- c("X", "Y")
+for (i in 1:nrow(mat)) {
+    flips <- rbinom(30, 1, 0.5)
+    mat[i, "X"] <- sum(flips[1:20])
+    mat[i, "Y"] <- sum(flips[11:30])
+}
+cov(mat[, "X"], mat[, "Y"])
+cor(mat[, "X"], mat[, "Y"])
+
+
+
+
+
+
+# For r.v. X, Y with given expectations, variances, and covariance, find a value
+#   for a s.t. X and X + aY are uncorrelated (ie, cov(X, Y) = 0)
+S <- matrix(c(1, -1,
+              -1, 9),
+            nrow = 2, byrow = TRUE)
+xy <- MASS::mvrnorm(n = 1e6,
+                    mu = c(2, 1),
+                    Sigma = S)
+mean(xy[, 1])
+var(xy[, 1])
+mean(xy[, 2])
+var(xy[, 2])
+cov(xy[, 1], xy[, 2])
+cor(xy[, 1], xy[, 2]) # expect -1/3 since corr = cov / sqrt(var1 * var2)
+cov(xy[, 1], xy[, 1] + 1 * xy[, 2]) # expect 0
+
+
+## another example
+S <- matrix(c(2, -1,
+              -1, 9),
+            nrow = 2, byrow = TRUE)
+xy <- MASS::mvrnorm(n = 1e6,
+                    mu = c(2, 1),
+                    Sigma = S)
+cov(xy[, 1], xy[, 2])
+cor(xy[, 1], xy[, 2]) # expect -1/sqrt(18)
+# Found general formula: a = -cov(X, Y) / var(Y)
+a <- -var(xy[, 1]) / cov(xy[, 1], xy[, 2])
+cov(xy[, 1], xy[, 1] + c * xy[, 2]) # expect 0
+true_a <- -S[1, 1] / S[1, 2]
+
+
+# X,Y is a random point from triangle with vertices (0,0), (-1,1), (1,1).
+# Find Cov(X, Y).
+#
+# Note, -1 < x < 1, 0 < y < 1, and y > |x|
+x <- runif(1e6, -1, 1)
+y <- runif(1e6, 0, 1)
+drop_ix <- which(y < abs(x)) ## drop points outside triangle
+dat <- data.frame(
+    x = x[-drop_ix],
+    y = y[-drop_ix]
+)
+xlin <- seq(-1, 1, length.out = 1000)
+# plot triangle and sampled points
+plot(dat[sample.int(nrow(dat), 10000), ], pch = ".")
+lines(xlin, abs(xlin), col = "red")
+lines(xlin, rep_len(1, length(xlin)), col = "red")
+# E[X] = 0, E[Y] = 2/3, E[XY] = 0, Cov(X,Y) = 0
+mean(dat$x) # expect 0
+mean(dat$y) # expect 2/3
+mean(dat$x * dat$y) # expect 0
+cov(dat$x, dat$y) # expect 0
+cor(dat$x, dat$y) # expect 0
+
+
+
+# Let U1, U2, ..., be an iid seq of Unif(0, 1) r.v.
+# Let N >= 2, be the first numbers s.t. U1 > U2 > ... U_{N-1} < U_N.
+#  In other words, sample Unif(0, 1)'s until the sampled value is larger than
+#  the previously sampled value. Then stop.
+# Find E[N]
+Ns <- numeric(1e5)
+for (iter in seq_along(Ns)) {
+    u <- runif(30) # very low prob that N > 30, safe to cutoff there
+    N <- 1
+    for (i in seq(2, length(u_order))) {
+        N <- N + 1
+        if (u[i] > u[i - 1])
+            break
+    }
+    Ns[iter] <- N
+}
+mean(Ns)
+exp(1)
+hist(Ns)
+
+
+
+
+mat <- matrix(NA_integer_, nrow = 1e6, ncol = 2)
+colnames(mat) <- c("N1", "N2")
+for (i in 1:nrow(mat)) {
+    rolls <- sample.int(6, size = 60, replace = TRUE)
+    mat[i, "N1"] <- which(rolls == 1)[1]
+    mat[i, "N2"] <- which(rolls == 2)[1]
+}
+## throw away simulations where face 1 or 2 was never rolled (technically a very small bias)
+mat <- mat[!is.na(mat[, 1]) & !is.na(mat[, 2]), ]
+cov(mat[, "N1"], mat[, "N2"])
+
+
+
+
+
+
+
+# Can we construct r.v. X ~ Ber(px) and Y ~ Ber(py) s.t. Corr(X, Y) = r,
+#   for some numer -1 <= r <= 1?
+# Yes, we sample X ~ Ber(px) and dependent on the outcome, sample Y with
+#   a given probability, which can be calculated from the correlation formula.
+# This is cool since Indicator rv's are Bernoulli rvs, which means we can exactly
+# set the correlation between any 2 events if we have control over the condtional
+# probabilities (i.e., P(Y = 1 | X = 1) and P(Y = 1 | X = 0)).
+# (Well, except for some combinations of event probabilities that are not possible.)
+#
+CorrelatedEvents <- function(prob_x, prob_y, corr) {
+    stopifnot(
+        prob_x >= 0 && prob_x <= 1,
+        prob_y >= 0 && prob_y <= 1,
+        abs(corr) <= 1
+    )
+    # compute conditional probabilities needed for the given corr
+    prob_y_given_x1 <- (
+        (prob_x * prob_y) +
+            corr * sqrt(prob_x * (1 - prob_x) * prob_y * (1 - prob_y))
+    ) / prob_x
+    if (prob_y_given_x1 < 0 || prob_y_given_x1 > 1)
+        stop("Parameters lead to invalid probability P(Y = 1 |X = 1): ", prob_y_given_x1)
+    
+    prob_y_given_x0 <- (
+        prob_y - prob_x * prob_y_given_x1 
+    ) / (1 - prob_x)
+    if (prob_y_given_x0 < 0 || prob_y_given_x0 > 1)
+        stop("Parameters lead to invalid probability P(Y = 1 |X = 0): ", prob_y_given_x0)
+    
+    # fn to sample X ~ Ber(prob_x), Y ~ Ber(prob_y), s.t. cor(X, Y) = corr
+    .sample_fn <- function(n = 1) {
+        mat <- data.frame(
+            X = rbinom(n, size = 1, prob = prob_x),
+            # pre-compute the probabilities
+            y_given_x1 = rbinom(n, size = 1, prob = prob_y_given_x1),
+            y_given_x0 = rbinom(n, size = 1, prob = prob_y_given_x0)
+        )
+        mat[["Y"]] <- ifelse(mat[["X"]] == 1,
+                             mat[["y_given_x1"]],
+                             mat[["y_given_x0"]])
+        
+        mat <- mat[, c("X", "Y")]
+        # # the more straightforward but slower way to do this:
+        # for (i in nrow(mat)) {
+        #     if (mat[i, "X"] == 1)
+        #         mat[i, "Y"] <- rbinom(1, size = 1, prob = prob_y_given_x1)
+        #     else
+        #         mat[i, "Y"] <- rbinom(1, size = 1, prob = prob_y_given_x0)
+        # }
+        return(mat)
+    }
+    
+    obj <- list(
+        prob_x = prob_x,
+        prob_y = prob_y,
+        corr = corr,
+        prob_y_given_x1 = prob_y_given_x1,
+        prob_y_given_x0 = prob_y_given_x0,
+        sample = .sample_fn
+    )
+    return(obj)
+}
+
+ce <- CorrelatedEvents(0.5, 0.5, 0.5)
+
+ce$prob_y_given_x1
+ce$prob_y_given_x0
+
+samples <- ce$sample(1e6)
+cor(samples$X, samples$Y)
+mean(samples$X)
+mean(samples$Y)
+mean(samples[samples$X == 1, "Y"])
+mean(samples[samples$X == 0, "Y"])
+
+
+
+
+
+
+
+
+
+
+
 
 
