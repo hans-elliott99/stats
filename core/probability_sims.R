@@ -846,11 +846,167 @@ mean(samples[samples$X == 0, "Y"])
 
 
 
+# X ~ N(0, 1)
+# theta = {-1, 1} with equal probability
+# Y = |X| * theta
+# Is (X,Y) bivariate normal?
+# No - linear combinations of X and Y need not be normal.
+X <- rnorm(1e6)
+theta <- sample(c(-1, 1), size = 1e6, replace = TRUE)
+Y <- abs(X) * theta
+mean(Y)
+var(Y)
+hist(X)
+hist(Y)
+a <- 10
+b <- 10
+hist( a*X + b*Y )
+
+
+
+# parameters of the log-normal distribution
+mu <- 1
+sd <- 1
+X <- rlnorm(1e6, meanlog = mu, sdlog = sd)
+
+mean(X)
+exp(mu + sd^2 / 2)
+
+var(X)
+(exp(sd^2) - 1) * exp(2 * mu + sd^2)
+
+
+
+
+# X ~ Gamma(2, 1)
+# Y|X ~ U(0, 1/X)
+# Probability Y > 2?
+# E[Y]?
+x <- rgamma(1e6, 2, 1)
+yx <- sapply(x, \(t) runif(1, 0, 1/t))
+
+# P(Y > 2 | X = x) = 1 - 2x, for 0 < x < 1/2 (0 otherwise)
+mean(yx[x > 0.9 & x < 1] > 2)     # 0
+mean(yx[x > 0.09 & x < 0.1] > 2)  # 1 - 2*0.1 = 0.8
+mean(yx[x > 0.19 & x < 0.2] > 2)  # 1 - 2*0.2 = 0.6
+mean(yx) # 1/2
 
 
 
 
 
 
+#
+# N ~ Poi(lambda). Given N = n, generate N iid points uniformly distributed on
+# the unit square. Given N >= 1, find the probability that all points lie below
+# the diagonal y = x.
+#
+lambda <- 3
 
+zeros <- 0
+res <- logical(1e5)
+for (i in seq_along(res)) {
+    N <- rpois(1, lambda = lambda)
+    if (N == 0) {
+        zeros <- zeros + 1
+        next
+    }
+    x <- runif(N)
+    y <- runif(N)
+    res[i] <- all(y <= x)
+}
+mean(res)
+exp(-lambda/2) # probability if we allow N = 0... quite different for small lambda
+exp(-lambda/2) - exp(-lambda)
+
+# probability for different lambdas - generally becomes less likely as lambda
+#   increases because larger lambda -> large avg number of trials -> more likely
+#   to have a point above the diagonal the more you points you have.
+ls <- seq(1, 10, length.out = 100)
+plot(ls, exp(-ls/2), col = "red", type = "l") # prob. if not conditioning on N>=0
+lines(ls, exp(-ls/2) - exp(-ls))
+
+
+
+
+
+# There are N hunters, where N ~ Pois(lambda).
+# A flock of ducks flies by and each hunter picks a duck uniformly at random, and
+# independently of all other hunters.
+# Each hunter hits its target with probability p.
+# Say a flock of 20 ducks flies by...
+#
+# The number of hunters who choose duck i is X_i.
+# Then given N = n, (X_1, ..., X_20) ~ Mult(n, 1/20, ..., 1/20).
+# By Poisson thinning, the unconditional distributions of the X_i are
+# Pois(lambda/20), and all X_i independent.
+# Now given X_i = x, the number of hunters who hit duck i is Y_i ~ Bin(x, p).
+# So by Poisson thinning, Y_i ~ Pois(lambda/20 * p). Again, all Y_i mutually
+# independent.
+#
+# What is the probability all ducks escape unhurt?
+# That occurs when Y_1, ..., Y_20 all equal 0.
+# We can evaluate the joint PMF, which is the produce of the Y_i Poisson PMFs,
+# to find exp(-lambda/20 * p)^20.
+nduck <- 20
+prob_hit <- 0.5
+hunter_lambda <- 3
+niter <- 1e4
+
+ducks <- 1:nduck
+duck_picks <- numeric(nduck)
+duck_hits <- numeric(nduck)
+allmiss <- 0
+
+for (i in 1:niter) {
+    nhunter <- rpois(1, lambda = hunter_lambda)
+    duck_pick <- sample(ducks, nhunter, replace = TRUE)
+    duck_hit <- rbinom(nhunter, size = 1, prob = prob_hit)
+    if (sum(duck_hit) == 0) {
+        allmiss <- allmiss + 1
+        next
+    }
+    
+    dpt <- table(duck_pick)
+    dpi <- as.integer(names(dpt))
+    duck_picks[dpi] <- duck_picks[dpi] + dpt
+    
+    dht <- table(duck_pick[duck_hit == 1])
+    dhi <- as.integer(names(dht))
+    duck_hits[dhi] <- duck_hits[dhi] + dht
+}
+
+duck_picks / niter
+hunter_lambda / nduck
+
+duck_hits / niter
+hunter_lambda * prob_hit / nduck
+
+allmiss / niter
+exp(-hunter_lambda / nduck * prob_hit)^nduck
+
+
+
+
+#
+# Roll an n-sided die 5 times.
+# Let X_1 count the number of times the first face is seen, X_2 the number of
+# times the second face is seen, etc.
+# What is the probability that X_1 == X_2?
+#
+library(data.table)
+n <- 10
+
+mat <- matrix(0, nrow = 1e6, ncol = n)
+for (i in 1:nrow(mat)) {
+    nums <- sample(1:n, size = 5, replace = TRUE)
+    ntab <- table(nums)
+    ix <- as.integer(names(ntab))
+    mat[i, ix] <- mat[i, ix] + ntab
+}
+mat <- as.data.table(mat)
+mat[V1 == V2, .N] / nrow(mat)
+((n-2)/n)^5 +
+    (20) * (1/n)^2 * ((n-2)/n)^3 +
+    (30) * (1/n)^4 * ((n-2)/n)
 
