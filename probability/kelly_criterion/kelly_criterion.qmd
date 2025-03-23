@@ -1,0 +1,342 @@
+---
+title: "Kelly Criterion"
+format: html
+server: shiny
+---
+
+
+## Exploring the Kelly Criterion
+
+Betting game.  
+You start with one unit of wealth ($W_0 = 1$).  
+You bet repeatedly based on the following rules:  
+
+1. You have a fixed probability of winning $p$, and losing, $1-p$.  
+2. When you win, you win $b$ dollars times the amount you just bet ($b:1$).  
+3. When you lose, you lose the amount you just bet.  
+4. At each round, you bet a fraction $\alpha$ of your current wealth $W$. For example, since your initial wealth is $W_0$, then in game 1 your bet is $\alpha W_0$ ($= \alpha$, since we assume you start with one unit of wealth).
+
+**Question:** Given $b$ and $p$, what is the optimal value of $\alpha$? That is, if you know the values of $b$ and $p$, what fraction of wealth should you bet each round to maximize your winnings? 
+
+**Solution:**
+The answer, as shown further below, is given by the Kelly Criterion:
+
+$$
+\alpha^* = p - \frac{1-p}{b}
+$$
+
+
+Here we can see how different combinations of $b$ and $p$ affect the optimal fraction of wealth to bet.  
+Assume that if the optimal $\alpha$ is less than 0, then you should not bet at all.
+
+```{r}
+sliderInput("win_prob", "Win probability (p):", 
+            min = 0, max = 1, value = 0.5)
+plotOutput("winningsPlot")
+
+```
+
+```{r}
+#| context: server
+output$winningsPlot <- renderPlot({
+    p <- input$win_prob
+    b <- seq(1, 50, by = 1)
+    alpha <- p - (1-p)/b
+    
+    plot(b, alpha,
+         type = "l", col = "blue", lwd = 2,
+         xlab = "Win amount (b)",
+         ylab = expression("Optimal alpha (" ~ alpha^"*" ~ ")"))
+    
+    if (any(alpha < 0))
+        abline(h = 0, col = "black", lty = 2)
+})
+```
+
+
+
+Where does the formula for the optimal $\alpha$ come from? As shown further below, it is the result of optimizing the "expected geometric growth rate" of your wealth, for a given $b$ and $p$.  
+Intuitively, we can derive the expected growth rate given $b$, $p$, and $\alpha$, and since we want as much wealth as possible, we want our wealth to grow and to do so as quickly as possible, meaning we want to maximize this quantity.  
+
+We actually optimize the log of the expected geometric growth rate, because it is easier and because log is a monotonic function so this doesn't change the optimal value of $\alpha$. The function is given by:  
+$$
+G(\alpha) = \log(1 + \alpha b ) p + \log(1 - \alpha) (1 - p)
+$$
+
+```{r}
+sliderInput("win_prob", "Win probability:", 
+            min = 0, max = 1, value = 0.5)
+sliderInput("win_amount", "Win amount:",
+            min = 1, max = 50, value = 10)
+
+plotOutput("growthPlot")
+```
+
+```{r}
+#| context: server
+
+output$growthPlot <- renderPlot({
+    p <- input$win_prob
+    b <- input$win_amount
+    alpha_star <- p - (1-p)/b
+    alphas <- seq(alpha_star - 0.1, alpha_star + 0.1, by = 0.01)
+    
+    g <- log(1 + alphas * b) * p + log(1 - alphas) * (1 - p)
+    
+    plot(alphas, g, type = "l", col = "blue", lwd = 2,
+         xlab = "alpha", ylab = "G(alpha)",
+         main = "Log expected geometric growth rate as a function of alpha",
+         sub = paste("Optimal alpha = ", round(alpha_star, 2)))
+    abline(v = alpha_star, col = "red", lty = 2)
+})
+
+```
+
+
+<br></br>
+
+Here are some simulations that show how your wealth might vary over time with different parameters.  
+
+An interesting point is that in a real-life scenario, we may not know the exact values of $b$ or $p$. For example, if investing in a market, you may be able to estimate returns ($b$), but it will be very difficult to estimate the probability of winning ($p$). Your estimate $p$ may be wrong, by a little or a lot, in which case your calculation of $\alpha$ will be suboptimal.  
+So you can experiment with choosing non-optimal values of $\alpha$ to compare with the optimal solution.  
+
+```{r}
+#| panel: sidebar
+
+sliderInput("win_prob", "Win probability (p):", 
+            min = 0, max = 1, value = 0.5)
+sliderInput("win_amount", "Win amount (b):",
+            min = 1, max = 50, value = 10)
+sliderInput("alpha", "Chosen Alpha:",
+            min = 0, max = 1, value = 0.45)
+sliderInput("num_rounds", "Number of rounds:",
+            min = 1, max = 100, value = 10)
+numericInput("seed", "Randomness seed (change for new simulation):",
+             value = 123)
+```
+
+```{r}
+#| panel: fill
+plotOutput("timePlot")
+plotOutput("lossPlot")
+plotOutput("mcPlot")
+```
+
+```{r}
+#| context: server
+
+sim_data <- reactive({
+    seed <- as.integer(input$seed)
+    set.seed(seed)
+    p <- input$win_prob
+    b <- input$win_amount
+    alpha <- input$alpha
+    alpha_opt <- round(p - (1-p)/b, 2) ## round off so matches slider inputs
+    alpha_opt <- if (alpha_opt < 0) 0 else alpha_opt
+    
+    W_opt <- rep_len(1, input$num_rounds)
+    W <- rep_len(1, input$num_rounds)
+    
+    for (i in seq(1, length(W) - 1)) {
+        bet_opt <- alpha_opt * W[i]
+        bet <- alpha * W[i]
+        
+        if (runif(1) < p) {
+            W[i+1] <- W[i] + bet * b
+            W_opt[i+1] <- W_opt[i] + bet_opt * b
+        } else {
+            W[i+1] <- W[i] - bet
+            W_opt[i+1] <- W_opt[i] - bet_opt
+        }
+    }
+    list(W = W, W_opt = W_opt, alpha_opt = alpha_opt)
+})
+
+output$timePlot <- renderPlot({
+    dat <- sim_data()
+    plot(dat$W,
+         type = "l",
+         main = "Simulated wealth over time",
+         xlab = "Time", ylab = "Wealth")
+    lines(dat$W_opt, col = "red")
+    mtext(side=3, line=0.5, at=4.7, adj=0, cex=0.8,
+          paste("Optimal alpha = ", round(dat$alpha_opt, 2)))
+    legend("topright",
+           legend = c("Chosen", "Optimal"),
+           col = c("black", "red"),
+           lty = 1)
+})
+
+output$lossPlot <- renderPlot({
+    dat <- sim_data()
+    diff <- dat$W - dat$W_opt
+    plot(diff, type = "l",
+         main = "Difference in wealth from optimal strategy over time",
+         xlab = "Time", ylab = expression(W - W^"*")
+         )
+})
+
+
+output$mcPlot <- renderPlot({
+    seed <- as.integer(input$seed)
+    set.seed(seed)
+    p <- input$win_prob
+    b <- input$win_amount
+    alpha <- input$alpha
+    alpha_opt <- round(p - (1-p)/b, 2) ## round off so matches slider inputs
+    alpha_opt <- if (alpha_opt < 0) 0 else alpha_opt
+    
+    n_sim <- 1000
+    W_opt <- matrix(1, nrow = n_sim, ncol = input$num_rounds)
+    W <- matrix(1, nrow = n_sim, ncol = input$num_rounds)
+    unif <- matrix(runif(n_sim * input$num_rounds),
+                   nrow = n_sim, ncol = input$num_rounds)
+    
+    for (i in seq(1, ncol(W) - 1)) {
+        bet_opt <- alpha_opt * W[, i]
+        bet <- alpha * W[, i]
+        
+        unif_mask <- unif[, i] < p
+        W[unif_mask,     i+1] <- W[unif_mask, i] + bet[unif_mask] * b
+        W[!unif_mask,    i+1] <- W[!unif_mask, i] - bet[!unif_mask]
+        W_opt[unif_mask, i+1] <- W_opt[unif_mask, i] + bet_opt[unif_mask] * b
+        W_opt[!unif_mask, i+1] <- W_opt[!unif_mask, i] - bet_opt[!unif_mask]
+    }
+    
+    W_med <- apply(W, 2, quantile, probs = 0.5)
+    W_lwr <- apply(W, 2, quantile, probs = 0.1)
+    W_upr <- apply(W, 2, quantile, probs = 0.9)
+    W_opt_med <- apply(W_opt, 2, quantile, probs = 0.5)
+    W_opt_lwr <- apply(W_opt, 2, quantile, probs = 0.1)
+    W_opt_upr <- apply(W_opt, 2, quantile, probs = 0.9)
+    
+    par(mfrow = c(1, 2))
+    plot(W_med,
+         type = "l",
+         main = "",
+         xlab = "Time", ylab = "Wealth")
+    lines(W_lwr, col = "grey30", lty = 2)
+    lines(W_upr, col = "grey30", lty = 2)
+    mtext(side=3, line=0.5, at=4.0, adj=0, cex=0.8,
+          paste("Chosen alpha = ", alpha))
+    
+    plot(W_opt_med, type = "l",
+         main = "",
+         xlab = "Time", ylab = "Wealth")
+    lines(W_opt_lwr, col = "grey30", lty = 2)
+    lines(W_opt_upr, col = "grey30", lty = 2)
+    mtext(side=3, line=0.5, at=4.0, adj=0, cex=0.8,
+          paste("Optimal alpha = ", round(alpha_opt, 2)))
+    
+    mtext("Median wealth and 80% credible interval from 1,000 simulations",
+          side=3, line=2, at=-1)
+
+})
+## input = list(
+##     win_prob = 0.5,
+##     win_amount = 10,
+##     alpha = 0.45,
+##     num_rounds = 10,
+##     seed = 123
+## )
+```
+
+
+## Derivation of the Kelly Criterion
+
+We are playing the betting game described above, with parameters $p$ (the winning probability), $b$ (the amount you win when you win the bet is $b:1$) and $alpha$ (the fraction of your current wealth to bet).  
+Our wealth at time $t$ is given by $W_t$, and we start with one "unit of wealth", so $W_0 = 1$.  
+
+At time $n$, my wealth is $W_n$, so at time $n + 1$, my wealth will be:  
+
+- $W_n ( 1 + \alpha b)$, if I win (with probability $p$)  
+  - This is your wealth at time $n$ plus the amount you win, given that you just bet $\alpha W_n$. 
+- $W_n ( 1 - \alpha)$, if I lose (with probability $1 - p$)  
+  - This is your wealth at time $n$ minus the amount you just bet, $\alpha W_n$.
+
+
+Now, let $X_1, X_2, X_3, \dots$ be i.i.d. $\text{Bernoulli}(p)$ random variables which indicate whether we win or lose the bet at time $t$.  
+Then we can write the above information about $W_{n + 1}$ in a single expression:  
+$$
+W_{n+1} = W_n (1 + \alpha b)^{X_{n+1}} (1 - \alpha)^{1 - X_{n+1}}
+$$
+
+- (Consider that if we win the bet at $n + 1$, then $X_{n+1} = 1$, and if we lose, $X_{n+1} = 0$.)
+
+But notice that this expression is always a product of the previous wealth.  
+So starting from $W_0 = 1$ we have $W_1 = (1 + \alpha b)^{X_1} (1 - \alpha)^{1 - X_1}$, $W_2 = W_1 (1 + \alpha b)^{X_2} (1 - \alpha)^{1 - X_2}$, and so on, such that:  
+$$
+W_n = \prod_{i=1}^n (1 + \alpha b)^{X_i} (1 - \alpha)^{1 - X_i}
+$$
+
+Now, since $W_n > 0$, this is equivalent to:  
+$$
+W_n = e^{\log(W_n)} = e^{\log(1 + \alpha b) \sum_{i = 1}^n X_i + \log(1 - \alpha) \sum_{i = 1}^n (1 - X_i)}
+$$
+Now probability theory kicks in.  
+Notice that $S_n = \sum_{i = 1}^n X_i$ is a $\text{Binomial}(n, p)$.  
+Rewrite the above expression again:  
+
+$$
+W_n = e^{n[\log(1 + \alpha b) \frac{S_n}{n} + \log(1 - \alpha) \frac{n - S_n}{n}]}
+$$
+
+But by the weak Law of Large Numbers, as $n \to \infty$, $\frac{S_n}{n}$ converges in probability to $p$. So this becomes approximately:  
+$$
+W_n = e^{n[\log(1 + \alpha b) p + \log(1 - \alpha) (1 - p)]}
+$$
+
+That is, if we assume that each betting round is reasonably modeled by i.i.d. $\text{Bernoulli}(p)$, then we can say that our wealth at time $n$ is approximately given by the above expression, with the approximation becoming better as $n$ grows.  
+
+
+Now, consider what happens to this whole expression as $n$ grows - that is, as time goes on and betting continues.    
+In the exponent, the quantity being multiplied by $n$ can be positive, exactly 0, or negative, depending on the parameters $b$, $p$, and $\alpha$. If it is negative, $W_n$ will go to 0 as $n$ increases. If it is exactly $0$, then $W_n$ will stay at $1$, the starting value. But if the exponent is positive, $W_n$ will grow as $n$ increases.  
+
+As a betting person, we want $W_n \to \infty$, and we want that to happen as quickly as possible!  
+
+So this motivates us to maximize the quantity $G(\alpha) = \log(1 + \alpha b) p + \log(1 - \alpha) (1 - p)$, which requires finding the $\alpha$ that maximizes $G$.   
+
+$G'(\alpha) = \frac{bp}{1 + \alpha b} - \frac{(1 - p)}{1 - \alpha}$  
+$G''(\alpha) = -\frac{bp}{(1 + \alpha b)^2} - \frac{(1 - p)}{(1 - \alpha)^2}$  
+We can see that $G''$ is always negative (since the parameters are all positive quantities), so $G$ is concave and optimizing will give a maximum.  
+Setting $G'(\alpha) = 0$ and solving for $\alpha$ gives the Kelly Criterion:  
+
+$$
+\alpha^* = p - \frac{(1 - p)}{b}
+$$
+
+
+
+
+## Sub-optimal strategies and relation to entropy
+
+Suppose we want to use the Kelly Criterion to govern a trading strategy in the stock market.  
+We estimate returns, $b$, and the probability of a positive return, $p$, from historical data.  
+Suppose that our estimate of the win probability is $\hat{p}$ which may or may not equal the true probability $p$.  
+Then calculating $\hat{\alpha} = \hat{p} - \frac{1 - \hat{p}}{b}$ will be suboptimal.  
+
+How much will this error cost us?  
+
+$\hat{W_n} = e^{n[\log(1 + \hat{\alpha} b) \hat{p} + \log(1 - \hat{\alpha}) (1 - \hat{p})]}$  
+$W_n = e^{n[\log(1 + \alpha^* b) p + \log(1 - \alpha^*) (1 - p)]}$  
+
+The ratio of the two is:  
+$$
+\frac{\hat{W_n}}{W_n} \approx e^{-n \text{KL}(Bern(p) | Bern(\hat{p}))}
+$$
+
+Where $\text{KL}(Bern(p) | Bern(\hat{p}))$ is the Kullback-Leibler divergence between the two Bernoulli distributions.  
+So your wealth from the sub-optimal strategy is discounted at the rate of the KL divergence between the true and estimated probabilities.  
+
+For discrete r.v., $KL(p | q) = \sum_x p(x) \log(\frac{p(x)}{q(x)})$ so
+
+$KL(Bern(p) | Bern(\hat{p})) = p \log(\frac{p}{\hat{p}}) + (1-p)\log(\frac{1-p}{1 - \hat{p}})$  
+$= p \log(p) - p \log(\hat{p}) + (1-p) \log(1-p) - (1-p) \log(1 - \hat{p})$  
+$= p \log(p) + (1 - p) \log(1 - p) - (p \log(\hat{p}) + (1 - p) \log(1 - \hat{p}))$  
+$= -Ent(p) - (p \log(\hat{p}) + (1 - p) \log(1 - \hat{p}))$
+
+
+... TODO
+
+
+
